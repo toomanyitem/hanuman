@@ -14,9 +14,7 @@ jobs:
   unit-test:
     name: Unit Tests (Linux)
     timeout-minutes: 60
-    runs-on: 
-      - ubuntu-latest
-      - self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
@@ -30,9 +28,7 @@ jobs:
 
   cli-test:
     name: CLI Tests (Linux)
-    runs-on: 
-      - ubuntu-latest
-      - self-hosted
+    runs-on: ubuntu-latest
     permissions:
       checks: write
       pull-requests: write
@@ -59,9 +55,7 @@ jobs:
 
   cli-test-cache-modules:
     name: CLI Tests with experimental-cache-modules (Linux)
-    runs-on:
-      - ubuntu-latest
-      - self-hosted
+    runs-on: ubuntu-latest
     permissions:
       checks: write
       pull-requests: write
@@ -91,9 +85,9 @@ jobs:
   e2e-test:
     name: Playwright E2E Tests (Linux) ${{ matrix.shard }}/${{ matrix.shardTotal }}
     timeout-minutes: 240
-    runs-on: 
-      - ubuntu-24.04
-      - self-hosted
+    # Hanuman: e2e is heavy on private-repo Actions minutes, run it on demand only
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -139,9 +133,7 @@ jobs:
     name: Merge Playwright Reports (Linux)
     if: ${{ !cancelled() }}
     needs: [e2e-test]
-    runs-on: 
-      - ubuntu-latest
-      - self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
@@ -170,9 +162,7 @@ jobs:
   ssl-test:
     name: SSL Tests (Linux)
     timeout-minutes: 60
-    runs-on: 
-      - ubuntu-latest
-      - self-hosted
+    runs-on: ubuntu-latest
     permissions:
       checks: write
       pull-requests: write
@@ -207,9 +197,7 @@ jobs:
   oauth1-tests:
     name: OAuth 1.0 Auth Tests (Linux)
     timeout-minutes: 60
-    runs-on: 
-      - ubuntu-latest
-      - self-hosted
+    runs-on: ubuntu-latest
     permissions:
       checks: write
       pull-requests: write
