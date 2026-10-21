@@ -17,7 +17,7 @@
 
 ## 2. เป้าหมาย
 
-รอบแรกทำครบทุกเฟส 0–4 (ผู้ใช้เลือกแล้ว) โดยแต่ละเฟส ship แยกกันได้
+รอบแรกทำครบทุกเฟส 0–4 (ผู้ใช้เลือกแล้ว) และต่อด้วยเฟส 5–7 ที่ผู้ใช้สั่งเพิ่มเมื่อ 2026-10-21 โดยแต่ละเฟส ship แยกกันได้
 
 | เฟส | สรุป |
 |---|---|
@@ -26,13 +26,17 @@
 | 2 | Data-driven testing และรายงานผลในแอป |
 | 3 | เชื่อมต่อ secret manager (Vault, AWS, Azure, GCP) |
 | 4 | Socket.IO, MQTT และ load testing |
+| 5 | Mock Server แบบเต็ม (ต่อยอดจาก beta ที่ upstream มีอยู่) |
+| 6 | Monitor: รัน collection ตามเวลา แล้วแจ้งเตือน |
+| 7 | API Docs แบบออฟไลน์ และเผยแพร่เป็นเว็บ static |
 
 ## 3. สิ่งที่ไม่ทำ (non-goals)
 
 - SSO, SCIM, audit log, การจัดการผู้ใช้, license admin และ AI governance เพราะไม่มี server กลางให้ใช้
 - cloud sync, การแก้ไขร่วมกันแบบ real-time, ระบบบัญชีผู้ใช้หรือ login
 - Postman Flows, public API network และ marketplace
-- **Monitor** (รัน collection ตาม cron บน K8s แล้วแจ้ง Telegram) เป็นไอเดียสำหรับรอบถัดไป ผู้ใช้ยังไม่ได้เลือก
+- ~~Monitor~~ ย้ายไปเป็นเฟส 6 แล้ว (ผู้ใช้สั่งเพิ่มเมื่อ 2026-10-21) แต่ยังไม่ทำ monitor แบบมี server กลางรันให้ตลอดเวลา (hosted) เหมือน Postman
+- ไม่มีบริการ hosting เอกสาร API ของเราเอง ให้เผยแพร่ผ่าน static host ที่ทีมมีอยู่แล้ว (ดูเฟส 7)
 - auto-update ภายในแอป: ไม่มีในรอบแรก ทีมโหลดเวอร์ชันใหม่จาก GitHub Releases เอง *(Friday ตัดสินใจเอง: repo เป็น private ระบบ update ต้องใช้ token จึงซับซ้อนเกินคุ้มสำหรับรอบแรก)*
 - เซ็นโค้ด macOS/Windows: รอบแรกไม่เซ็น *(Friday ตัดสินใจเอง)* ผู้ใช้ mac ต้องคลิกขวาแล้วเลือก Open หรือรัน `xattr -dr com.apple.quarantine` ส่วน Windows จะขึ้นคำเตือน SmartScreen
 
@@ -177,8 +181,67 @@
   - load test 50 VU นาน 30 วินาทีกับ test server ได้ตัวเลขที่ตรวจสอบได้
   - กดหยุดแล้วไม่มี request ค้าง
 
+### เฟส 5 — Mock Server แบบเต็ม
+**ของที่ upstream มีอยู่แล้ว (สำรวจเมื่อ 2026-10-21):** Mock Server เป็นฟีเจอร์ beta (เปิดเป็นค่าเริ่มต้น) ผูกกับ workspace เก็บเป็นไฟล์ `<workspace>/mocks/*.yml` (`bruno-filestore/src/formats/yml/{parse,stringify}MockServer.ts`) ฝั่ง main อยู่ที่ `bruno-electron/src/app/mock-server/` และ `ipc/mock-server/` ฝั่ง UI อยู่ที่ `bruno-app/src/components/MockServer/`
+- route สร้างได้จาก response example ของ collection, จาก OpenAPI (ใช้ faker สร้างครั้งเดียวตอน generate) หรือสร้างเอง
+- จับคู่ route แบบตรงตัวและแบบ `:param` ได้, มี rule ตรวจ header/query/body (equals, not_equals, contains, regex, AND/OR)
+- มี delay คงที่ต่อ server, request log ในหน่วยความจำ (500 รายการ) และ bind แค่ `127.0.0.1` พอร์ตเริ่มต้น 4000
+- **ยังไม่มี:** response แบบ dynamic, wildcard, delay ต่อ route, fault injection, proxy/record, state, HTTPS และการรันจาก CLI
+
+**ที่ต้องเพิ่ม** (ทุกฟิลด์ใหม่ในไฟล์ mock ต้องเป็น optional ตาม `.claude/rules/dsl-changes.md` เพื่อให้ Bruno ยังเปิดไฟล์ได้):
+- **response แบบ dynamic:** ใช้ template ใน body/header ได้ เช่น `{{request.params.id}}`, `{{request.query.page}}`, `{{request.body.user.name}}`, `{{request.headers.x-id}}` และตัวแปรสุ่มต่อ request (`{{$randomUUID}}`, `{{$randomInt}}`, `{{$isoTimestamp}}` และ faker ที่ใช้อยู่แล้วใน `mock-example-generator.js`) โดยต่อยอด `interpolate` ของ `bruno-common`
+- **การจับคู่ route:** เพิ่ม wildcard `*` และ `**` และให้ query string ใช้เป็นเงื่อนไขของ route ได้
+- **ความหน่วงและความผิดพลาด:** delay ต่อ route พร้อม jitter (min–max), fault injection ต่อ route (อัตรา % ที่จะตอบ status ที่กำหนด, ตัดการเชื่อมต่อ หรือ timeout)
+- **proxy และ record:** request ที่ไม่ตรง route ไหนให้ส่งต่อไป backend จริงได้ (passthrough) และมีโหมด record เก็บ response จริงเป็น mock route หรือเป็น example ของ collection
+- **stateful CRUD (ตัวเลือก):** ประกาศ resource เช่น `/users` แล้วได้ GET list/GET by id/POST/PUT/PATCH/DELETE ที่จำข้อมูลในหน่วยความจำ มีปุ่ม reset และกำหนดข้อมูลตั้งต้นจากไฟล์ JSON ได้
+- **network:** เลือก bind ที่ `0.0.0.0` ได้เพื่อแชร์ในวง LAN ของทีม (ต้องขึ้นคำเตือน), รองรับ HTTPS ด้วย cert ที่ผู้ใช้ให้มาหรือ self-signed ที่สร้างให้
+- **request log:** export เป็น HAR หรือ JSON ได้ และสร้าง request ใน collection จาก log ได้
+- **CLI:** `hanuman mock serve <ไฟล์ mock หรือโฟลเดอร์ workspace> [--port] [--host]` เพื่อใช้ใน CI หรือ docker-compose ของทีม frontend โดยใช้โค้ด server ร่วมกับแอป (ย้ายแกนที่ไม่ผูกกับ Electron ไปไว้ใน package ที่ CLI ใช้ได้ ตาม `.claude/rules/architecture.md`)
+- ถอดออกจาก beta เมื่อครบเงื่อนไขด้านล่าง
+- **ถือว่าเสร็จเมื่อ:**
+  - unit test ของ template, wildcard, rule, fault injection และ CRUD ผ่าน
+  - e2e: สร้าง mock จาก collection example แล้วเรียกผ่าน HTTP ได้ค่าตาม template, proxy ไป test server ใน `packages/bruno-tests` ได้ และ record แล้วได้ route ใหม่
+  - `hanuman mock serve` ตอบเหมือนแอปทุกประการกับไฟล์ mock เดียวกัน
+  - ไฟล์ mock ที่บันทึกจาก Hanuman ยังเปิดใน Bruno ได้ (ฟิลด์ใหม่ถูกข้ามไป ไม่ทำไฟล์พัง)
+
+### เฟส 6 — Monitor
+**ของที่ upstream มีอยู่แล้ว:** ไม่มี scheduler หรือการแจ้งเตือนใด ๆ มีแค่ `bru run` พร้อม reporter json/junit/html
+
+**แนวคิด:** monitor คือ "การรัน collection ตามเวลา + เช็กผล + แจ้งเตือน" โดยไม่มี server กลางของเรา จึงรันได้ 3 ที่ ใช้นิยามไฟล์เดียวกัน
+1. **ในแอป** ขณะแอปเปิดอยู่ (เหมาะกับการเฝ้าระหว่างพัฒนา)
+2. **CLI** `hanuman monitor run <ไฟล์>` รันครั้งเดียวแล้วจบ ให้ cron ของเครื่อง, CI หรือ K8s เป็นตัวตั้งเวลา
+3. **ส่งออก template** เป็น GitHub Actions (`schedule:`), GitLab CI schedule และ Kubernetes CronJob (image ที่มี CLI) ตามที่ทีมใช้อยู่จริง
+
+- **ไฟล์นิยาม:** `<workspace>/monitors/<name>.yml` (ระดับ workspace แบบเดียวกับ `mocks/` และไม่อยู่ในโฟลเดอร์ collection เพื่อไม่ให้ collection watcher ของ Bruno เข้าใจผิดว่าเป็น request) ประกอบด้วย collection (path), folder หรือ tag ที่จะรัน, environment, cron expression พร้อม timezone, ไฟล์ข้อมูลจากเฟส 2, timeout, retry, และเงื่อนไขแจ้งเตือน (fail, กลับมาปกติ, ทุกครั้ง หรือ latency เกินเกณฑ์)
+- **ช่องทางแจ้งเตือน:** Telegram, Slack, Discord, Microsoft Teams, LINE Messaging API (LINE Notify ปิดบริการไปแล้ว) และ webhook ทั่วไป (POST JSON) ข้อความมีชื่อ monitor, จำนวน request ที่ผ่าน/ไม่ผ่าน, request ที่ fail พร้อมเหตุผล และเวลา
+- **secret:** token ของช่องทางแจ้งเตือนห้ามอยู่ในไฟล์ monitor ให้อ้างชื่อ env var (เช่น `HANUMAN_TELEGRAM_TOKEN`) หรือ secret profile จากเฟส 3 เท่านั้น
+- **ผลรัน:** ใช้ reporter ชุดเดียวกับเฟส 2 เก็บประวัติในเครื่อง แสดงกราฟ uptime/ผ่าน-ไม่ผ่าน และ latency ตามเวลาในแอป ฝั่ง CLI เขียน JSON/JUnit/HTML ให้ CI เก็บเป็น artifact
+- **ถือว่าเสร็จเมื่อ:**
+  - unit test ของ cron parser, การตัดสินว่าจะแจ้งเตือนหรือไม่ และ payload ของแต่ละช่องทาง (mock HTTP)
+  - e2e: monitor ในแอปรันตามเวลาจริงกับ test server แล้วส่ง webhook ไปยัง server ทดสอบในเครื่อง
+  - `hanuman monitor run` ให้ผลตรงกับในแอป และ exit code ไม่เป็น 0 เมื่อ fail
+  - template GitHub Actions ที่ส่งออกใช้รันได้จริงใน repo ทดสอบ
+
+### เฟส 7 — API Docs
+**ของที่ upstream มีอยู่แล้ว:** `generateApiDocsHtml` (`bruno-common/src/api-docs/index.ts`) สร้าง HTML ไฟล์เดียวที่ฝัง collection เป็น OpenCollection YAML แต่ตัว renderer **โหลดจาก `https://cdn.usebruno.com/api-docs/`** (ไม่มีโค้ดใน repo) จึงต้องต่อเน็ตและพึ่ง server ของ Bruno, ธีมล็อกเป็น light, ใช้ได้จากแอป (`GenerateDocumentation`) และ `bru docs generate` ส่วน package `bruno-docs` เป็นแค่ placeholder
+
+**ที่ต้องเพิ่ม:**
+- **renderer ของเราเอง ทำงานออฟไลน์:** package ใหม่ `packages/hanuman-docs` (React หรือ vanilla ที่ bundle เป็นไฟล์เดียว) แล้วให้ `generateApiDocsHtml` ใช้ option `rendererBaseUrl`/inline bundle ที่มีอยู่แล้ว ไม่ต้องแก้โค้ด upstream มาก **ห้ามดึงหรือคัดลอก bundle จาก CDN ของ Bruno** เพราะไม่ใช่โค้ด MIT ใน repo
+- **เนื้อหา:** sidebar ตาม folder, ค้นหา (client-side), รายละเอียด request (method, URL, params, headers, body, auth แบบไม่โชว์ secret), docs markdown ของ collection/folder/request, response example, code snippet หลายภาษา และสลับ environment ได้ (ค่า secret ถูกปิดเสมอ)
+- **รูปแบบผลลัพธ์:** HTML ไฟล์เดียว (ส่งต่อทางแชตหรืออีเมลได้) และ static site หลายหน้า (เหมาะกับ collection ใหญ่)
+- **ธีมและแบรนด์:** light/dark/ตามระบบ, ใส่โลโก้ ชื่อ และสีหลักของทีมได้
+- **OpenAPI:** ส่งออก OpenAPI 3.1 ได้ทั้งในแอปและ CLI (`hanuman docs openapi`) โดยย้าย exporter `bruno-app/src/utils/exporters/openapi-spec.js` ไปไว้ใน `bruno-converters` ให้ CLI ใช้ร่วมได้
+- **เผยแพร่:** ไม่มี hosting ของเรา ให้มี template CI สำหรับ GitHub Pages, GitLab Pages และ static host ทั่วไป (S3/GCS/nginx) และให้ `hanuman docs generate --watch` ใช้ดูตัวอย่างในเครื่องได้
+- **Try it (ตัวเลือก):** ส่ง request จากหน้าเอกสารได้ ปิดเป็นค่าเริ่มต้น และแจ้งเรื่อง CORS ให้ชัด
+- **ถือว่าเสร็จเมื่อ:**
+  - ไฟล์ HTML ที่สร้างได้เปิดแบบออฟไลน์ได้ครบ (ทดสอบด้วย Playwright โดยบล็อกเน็ตทั้งหมด)
+  - ไม่มีค่า secret ของ environment หลุดไปในเอกสาร (มีเทสต์ตรวจ)
+  - ผลจากแอปและจาก CLI เหมือนกัน
+  - OpenAPI ที่ส่งออกผ่าน validator และ import กลับเข้ามาแล้วได้ request ครบ
+
 ## 7. ลำดับและวิธีส่งมอบ
-- ลำดับคือ 0 → 1 → 2 → 3 → 4 แต่ละเฟสมีแผน, branch, PR, review และ verify ของตัวเอง
+- ลำดับคือ 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 แต่ละเฟสมีแผน, branch, PR, review และ verify ของตัวเอง
+- เฟส 6 ต้องใช้ reporter และไฟล์ข้อมูลจากเฟส 2 และ secret profile จากเฟส 3 จึงต้องทำหลังสองเฟสนั้น ส่วนเฟส 5 และ 7 ไม่ขึ้นกับเฟสอื่น ถ้าทีมต้องใช้ก่อนสลับลำดับขึ้นมาได้
 - จบแต่ละเฟสแล้วออก release (`v0.1`, `v0.2`, …) ให้ทีมเริ่มใช้ได้ทันที
 - ต้นแต่ละเฟสให้ merge upstream ก่อน (ข้อ 5.4)
 
@@ -231,3 +294,12 @@
     - ไม่ทำ snap
     - ถ้าไม่มี env var สำหรับเซ็น ให้ `notarize.js` และการเซ็นข้ามไปเอง
     - `publish` ของ electron-builder ชี้ไปที่ `toomanyitem/hanuman`
+
+**ตัดสินใจเพิ่มตอนลงมือเฟส 0 (2026-10-21):**
+
+19. **OAuth2 loopback:** callback เริ่มต้นคือ `http://127.0.0.1:9876/callback` (พอร์ตคงที่ เพราะผู้ให้บริการหลายเจ้าต้องลงทะเบียน redirect URI แบบตรงตัว) listener เปิดเฉพาะตอนรอ callback แล้วปิดทันที flow แบบ implicit ใช้หน้าเว็บส่ง fragment กลับมาเป็น query ถ้าผู้ใช้ตั้ง callback ที่ไม่ใช่ loopback ให้ใช้ protocol handler (`hanuman://`) แบบเดิม
+20. **โฟลเดอร์เริ่มต้น** ของ workspace/collection ใหม่คือ `~/Documents/hanuman` (Bruno ใช้ `~/Documents/bruno`)
+21. **การแจ้งเตือนในแอป** (`ipc/notifications.js`) จะดึงก็ต่อเมื่อตั้ง `HANUMAN_INFO_ENDPOINT` ไว้เท่านั้น
+22. **โลโก้:** หน้าลิงหนุมานแบบเรียบ ขนส้มหญ้าฝรั่น หน้าสีครีม สวมชฎาทอง มีติลกสีแดงที่หน้าผาก ไอคอนแอปวางบนพื้นสี่เหลี่ยมมุมมนสีคราม ไฟล์ต้นฉบับอยู่ที่ `assets/brand/` คอมโพเนนต์ `components/Bruno` เปลี่ยนเป็น re-export ของ `components/HanumanLogo` เพื่อไม่ต้องแก้จุดที่ upstream import
+23. **ข้อความที่ยังคงคำว่า Bruno โดยตั้งใจ:** ชื่อรูปแบบไฟล์ ("Bruno collection", "Bruno's native file format"), ลิงก์ไปเอกสาร docs.usebruno.com, ค่า `exportedUsing` ในไฟล์ export, marker ใน `.gitignore` ที่ upstream จัดการ, prompt ของ AI ที่อธิบาย API `bru.*` และเครดิตใน About/NOTICE
+
