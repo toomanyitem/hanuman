@@ -2,14 +2,20 @@
 # Windows installer (through wine) and the CLI bundle. Used by
 # scripts/hanuman/release-docker.sh so a Mac (or any Docker host) can build
 # what a Linux machine would, without installing rpm or wine on the host.
-FROM node:22-bookworm
+FROM node:22-bookworm AS node
+
+FROM ubuntu:24.04
+
+COPY --from=node /usr/local/bin /usr/local/bin
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node /usr/local/include/node /usr/local/include/node
 
 # rpm: rpmbuild for the .rpm targets. wine64 + wine32: electron-builder runs
 # rcedit-ia32.exe through wine to stamp the icon and version into the .exe.
-RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
-  && dpkg --add-architecture i386 \
+RUN dpkg --add-architecture i386 \
   && apt-get update \
-  && apt-get install -y --no-install-recommends rpm wine wine64 wine32:i386 xvfb xauth \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates git python3 make g++ rpm wine wine64 wine32:i386 xvfb xauth \
   && rm -rf /var/lib/apt/lists/*
 
 # Create the wine prefix once so builds don't start from a half-initialised one.
