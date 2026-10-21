@@ -1,7 +1,6 @@
 const os = require('os');
 const fs = require('fs-extra');
-const util = require('util');
-const spawn = util.promisify(require('child_process').spawn);
+const { spawn } = require('child_process');
 const path = require('path');
 
 async function deleteFileIfExists(filePath) {
@@ -48,8 +47,8 @@ async function removeSourceMapFiles(directory) {
 }
 
 async function execCommandWithOutput(command) {
-  return new Promise(async (resolve, reject) => {
-    const childProcess = await spawn(command, {
+  return new Promise((resolve, reject) => {
+    const childProcess = spawn(command, {
       stdio: 'inherit',
       shell: true
     });
@@ -123,9 +122,14 @@ async function main() {
       osArg = 'linux';
     }
 
-    await execCommandWithOutput(`npm run dist:${osArg} --workspace=packages/bruno-electron`);
+    // ELECTRON_BUILDER_ARGS lets CI pick explicit targets/arches, e.g. `--linux AppImage deb --x64`.
+    const distCommand = process.env.ELECTRON_BUILDER_ARGS
+      ? `npm exec --workspace=packages/bruno-electron -- electron-builder ${process.env.ELECTRON_BUILDER_ARGS} --config electron-builder-config.js`
+      : `npm run dist:${osArg} --workspace=packages/bruno-electron`;
+    await execCommandWithOutput(distCommand);
   } catch (error) {
     console.error('An error occurred:', error);
+    process.exitCode = 1;
   }
 }
 

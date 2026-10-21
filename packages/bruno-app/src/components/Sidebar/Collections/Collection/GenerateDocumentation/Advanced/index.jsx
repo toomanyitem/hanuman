@@ -104,7 +104,7 @@ const Advanced = ({
                     <ToggleSwitch isOn={includeGitLink} handleToggle={onGitLinkToggle} size="xs" />
                   </label>
                 </div>
-                <p className="adv-desc">Adds the repository link so readers can clone your collection in Bruno.</p>
+                <p className="adv-desc">Adds the repository link so readers can clone your collection in Hanuman or Bruno.</p>
               </section>
             )}
           </div>

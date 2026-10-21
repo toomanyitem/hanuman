@@ -3,8 +3,8 @@ require('dotenv').config({ path: process.env.DOTENV_PATH });
 const isBenchmark = process.env.BRUNO_BENCHMARK === 'true';
 
 const config = {
-  appId: 'com.usebruno.app',
-  productName: isBenchmark ? 'Bruno Benchmark' : 'Bruno',
+  appId: 'com.toomanyitem.hanuman',
+  productName: isBenchmark ? 'Hanuman Benchmark' : 'Hanuman',
   extraMetadata: {
     brunoBuild: {
       benchmark: isBenchmark,
@@ -23,6 +23,7 @@ const config = {
     }
   ],
   files: ['**/*'],
+  afterPack: 'adhoc-sign.js',
   afterSign: 'notarize.js',
   mac: {
     artifactName: '${name}_${version}_${arch}_${os}.${ext}',
@@ -43,16 +44,17 @@ const config = {
     ],
     icon: 'resources/icons/mac/icon.icns',
     hardenedRuntime: true,
-    identity: 'Anoop MD (W7LPPWA48L)',
+    // Unsigned unless a signing identity is provided (e.g. CSC_LINK / CSC_NAME in CI).
+    identity: process.env.CSC_NAME || (process.env.CSC_LINK ? undefined : null),
     entitlements: 'resources/entitlements.mac.plist',
     entitlementsInherit: 'resources/entitlements.mac.plist',
     notarize: false,
     requirements: 'resources/app-requirements.txt',
     protocols: [
       {
-        name: 'Bruno',
+        name: 'Hanuman',
         schemes: [
-          'bruno'
+          'hanuman'
         ]
       }
     ]
@@ -76,13 +78,13 @@ const config = {
     ],
     protocols: [
       {
-        name: 'Bruno',
-        schemes: ['bruno']
+        name: 'Hanuman',
+        schemes: ['hanuman']
       }
     ],
     category: 'Development',
     desktop: {
-      MimeType: 'x-scheme-handler/bruno;'
+      MimeType: 'x-scheme-handler/hanuman;'
     }
   },
   deb: {
@@ -119,7 +121,7 @@ const config = {
       }
     ],
     sign: null,
-    publisherName: 'Bruno Software Inc'
+    publisherName: 'toomanyitem'
   },
   nsis: {
     include: 'resources/installer.nsh',

@@ -1,6 +1,7 @@
 import React from 'react';
 
 import Bruno from 'components/Bruno/index';
+import { HANUMAN_ISSUES_URL } from 'utils/hanuman';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -56,10 +57,10 @@ class ErrorBoundary extends React.Component {
               Please report this under:
               <a
                 className="text-link hover:underline cursor-pointer ml-2"
-                href="https://github.com/usebruno/bruno/issues"
+                href={HANUMAN_ISSUES_URL}
                 target="_blank"
               >
-                https://github.com/usebruno/bruno/issues
+                {HANUMAN_ISSUES_URL}
               </a>
             </p>
 

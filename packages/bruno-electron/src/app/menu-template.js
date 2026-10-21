@@ -96,7 +96,7 @@ const template = [
     role: 'help',
     submenu: [
       {
-        label: 'About Bruno',
+        label: 'About Hanuman',
         click: () => {
           const aboutWindow = new BrowserWindow({
             width: 350,
@@ -109,7 +109,8 @@ const template = [
           aboutWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(aboutBruno({ version }))}`);
         }
       },
-      { label: 'Documentation', click: () => ipcMain.emit('main:open-docs') }
+      { label: 'Documentation', click: () => ipcMain.emit('main:open-docs') },
+      { label: 'Check for Updates…', click: () => ipcMain.emit('main:check-for-updates') }
     ]
   }
 ];

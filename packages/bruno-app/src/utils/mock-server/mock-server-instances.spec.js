@@ -117,7 +117,7 @@ describe('getMockServerPortError', () => {
 
   it('reports ports held by another mock server', () => {
     expect(getMockServerPortError({ available: false, reason: 'bruno' }, 4000))
-      .toBe('Port 4000 is already used by another mock server in Bruno.');
+      .toBe('Port 4000 is already used by another mock server in Hanuman.');
   });
 });
 

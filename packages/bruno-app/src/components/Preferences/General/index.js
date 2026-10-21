@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import get from 'lodash/get';
 import debounce from 'lodash/debounce';
 import { useFormik } from 'formik';
@@ -8,7 +8,8 @@ import { browseDirectory } from 'providers/ReduxStore/slices/collections/actions
 import StyledWrapper from './StyledWrapper';
 import * as Yup from 'yup';
 import toast from 'react-hot-toast';
-import { IconTrash, IconUpload } from '@tabler/icons';
+import { IconRefresh, IconTrash, IconUpload } from '@tabler/icons';
+import Button from 'ui/Button';
 import path from 'utils/common/path';
 import { SettingsGroup, CheckboxSetting, SettingsField } from '../SettingsLayout';
 
@@ -59,6 +60,9 @@ const General = () => {
     oauth2: Yup.object({
       useSystemBrowser: Yup.boolean()
     }),
+    updates: Yup.object({
+      checkAutomatically: Yup.boolean()
+    }),
     defaultLocation: Yup.string().max(1024)
   });
 
@@ -81,6 +85,9 @@ const General = () => {
       },
       oauth2: {
         useSystemBrowser: get(preferences, 'request.oauth2.useSystemBrowser', false)
+      },
+      updates: {
+        checkAutomatically: get(preferences, 'updates.checkAutomatically', false)
       },
       defaultLocation: get(preferences, 'general.defaultLocation', '')
     },
@@ -119,6 +126,9 @@ const General = () => {
         autoSave: {
           enabled: newPreferences.autoSave.enabled,
           interval: newPreferences.autoSave.interval
+        },
+        updates: {
+          checkAutomatically: newPreferences.updates.checkAutomatically
         },
         general: {
           defaultLocation: newPreferences.defaultLocation
@@ -179,6 +189,16 @@ const General = () => {
   const customCaCertificateEnabled = formik.values.customCaCertificate.enabled;
   const customCaCertificatePath = formik.values.customCaCertificate.filePath;
   const keepDefaultCaCertificatesDisabled = !(customCaCertificateEnabled && customCaCertificatePath);
+  const [checkingForUpdates, setCheckingForUpdates] = useState(false);
+  // The main process reports the outcome in a native dialog.
+  const checkForUpdatesNow = () => {
+    setCheckingForUpdates(true);
+    window.ipcRenderer
+      .invoke('renderer:check-for-updates')
+      .catch(() => toast.error('Failed to check for updates'))
+      .finally(() => setCheckingForUpdates(false));
+  };
+
   const autoSaveEnabled = formik.values.autoSave.enabled;
 
   // gate typed field errors on touched so they are not flashed on every keystroke
@@ -308,6 +328,29 @@ const General = () => {
               disabled={!autoSaveEnabled}
             />
           </SettingsField>
+        </SettingsGroup>
+
+        <SettingsGroup title="Updates">
+          <CheckboxSetting
+            id="checkForUpdatesAutomatically"
+            name="updates.checkAutomatically"
+            label="Check for updates when Hanuman starts"
+            description="Asks GitHub for the latest Hanuman release. Nothing else is sent."
+            checked={formik.values.updates.checkAutomatically}
+            onChange={formik.handleChange}
+          />
+          <div>
+            <Button
+              size="xs"
+              variant="outline"
+              icon={<IconRefresh size={13} strokeWidth={1.5} />}
+              onClick={checkForUpdatesNow}
+              loading={checkingForUpdates}
+              data-testid="check-for-updates-button"
+            >
+              Check Now
+            </Button>
+          </div>
         </SettingsGroup>
 
         <SettingsGroup title="Requests">

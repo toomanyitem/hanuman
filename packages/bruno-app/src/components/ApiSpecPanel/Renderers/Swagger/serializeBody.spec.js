@@ -37,7 +37,7 @@ describe('serializeBody', () => {
       fd.append('file', new Blob(['x']));
       expect(() => serializeBody(fd)).toThrow(TypeError);
       expect(() => serializeBody(fd)).toThrow(/Multipart form data/);
-      expect(() => serializeBody(fd)).toThrow(/Create a Bruno request/);
+      expect(() => serializeBody(fd)).toThrow(/Create a request/);
     });
 
     it('throws TypeError for Blob using "Binary file upload" subject', () => {
@@ -65,7 +65,7 @@ describe('serializeBody', () => {
     });
 
     it('message attributes the limitation to Bruno, not Swagger', () => {
-      expect(UNSUPPORTED_BODY_MESSAGE('FormData')).toMatch(/isn't supported in Bruno yet/);
+      expect(UNSUPPORTED_BODY_MESSAGE('FormData')).toMatch(/isn't supported in Hanuman yet/);
     });
 
     it('message lists supported alternatives', () => {

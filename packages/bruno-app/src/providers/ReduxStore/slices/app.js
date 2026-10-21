@@ -68,6 +68,9 @@ const initialState = {
       enabled: false,
       interval: 1000
     },
+    updates: {
+      checkAutomatically: false
+    },
     cache: {
       sslSession: {
         enabled: false
