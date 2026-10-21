@@ -55,7 +55,7 @@ npm run dev                      # เปิดแอปดูหน้าแร
 | ไฟล์ใหม่: `scripts/hanuman/*`, `docker/cli/`, `docker/release/` | build/release ในเครื่อง, ตั้งเวอร์ชัน, ตรวจ invariant, Docker image ของ CLI |
 
 ### แบรนด์
-- ไอคอนแอปทั้งหมดใน `bruno-electron/resources/icons/`, `bruno-electron/src/about/256x256.png`, `bruno-app/public/favicon.ico` สร้างจาก `assets/brand/hanuman-icon.svg`
+- ไอคอนแอปทั้งหมดใน `bruno-electron/resources/icons/`, `bruno-electron/src/about/256x256.png`, `bruno-app/public/favicon.ico`, `bruno-app/src/assets/hanuman-logo.png` และ `assets/images/hanuman-*.png` สร้างจาก `assets/brand/hanuman-logo-source.png` ด้วย `python3 scripts/hanuman/make-icons.py` (ถ้า upstream แก้ไอคอน ให้รันสคริปต์นี้ใหม่แทนการแก้ conflict ทีละไฟล์)
 - `bruno-app/src/components/Bruno/index.js` re-export `components/HanumanLogo` (ถ้า upstream แก้โลโก้ ให้คงไฟล์ของเราไว้)
 - `bruno-electron/src/app/about-bruno.js` (โลโก้ ชื่อ และเครดิต)
 - ข้อความที่ผู้ใช้เห็นซึ่งพูดถึงตัวแอป เปลี่ยนเป็น Hanuman ราว 40 ไฟล์ใน `bruno-app/src` (ดู `git log --stat` ของ commit "rebrand app identity") ส่วนชื่อรูปแบบไฟล์ ("Bruno collection") ลิงก์ docs.usebruno.com และ API `bru.*` คงไว้ตามเดิม
