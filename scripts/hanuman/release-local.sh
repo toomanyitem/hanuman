@@ -8,11 +8,14 @@
 #            macOS: mac · Linux: linux win cli · Windows: win)
 #   --upload: create the release as a draft if it does not exist yet, then
 #             upload (or replace) the files. Needs `gh auth login`.
+#   --upload-only: skip building and upload what is already in dist/release/<tag>
+#             (e.g. files built by scripts/hanuman/release-docker.sh).
 #
 # Examples:
 #   scripts/hanuman/release-local.sh v0.1.0                 # build only, files in dist/release/v0.1.0
 #   scripts/hanuman/release-local.sh v0.1.0 mac --upload    # on a Mac
 #   scripts/hanuman/release-local.sh v0.1.0 linux win cli --upload
+#   scripts/hanuman/release-local.sh v0.1.0 --upload-only
 #
 # What each target needs:
 #   mac   — macOS (dmg/pkg need hdiutil/productbuild); builds x64 + arm64
@@ -32,10 +35,12 @@ shift
 VERSION="${TAG#v}"
 
 UPLOAD=false
+UPLOAD_ONLY=false
 TARGETS=()
 for arg in "$@"; do
   case "$arg" in
     --upload) UPLOAD=true ;;
+    --upload-only) UPLOAD_ONLY=true ;;
     mac|win|linux|snap|cli) TARGETS+=("$arg") ;;
     *) echo "Unknown argument: $arg" >&2; exit 1 ;;
   esac
@@ -54,6 +59,21 @@ RELEASE_DIR="$ROOT_DIR/dist/release/$TAG"
 mkdir -p "$RELEASE_DIR"
 
 cd "$ROOT_DIR"
+
+upload() {
+  if ! gh release view "$TAG" > /dev/null 2>&1; then
+    echo "==> Creating draft release $TAG (publish it on GitHub when every platform is uploaded)"
+    gh release create "$TAG" --draft --title "Hanuman $TAG" --generate-notes --target "$(git rev-parse HEAD)"
+  fi
+  echo "==> Uploading to release $TAG"
+  gh release upload "$TAG" "$RELEASE_DIR"/* --clobber
+}
+
+if [ "$UPLOAD_ONLY" = true ]; then
+  [ -n "$(ls -A "$RELEASE_DIR")" ] || { echo "Nothing to upload in $RELEASE_DIR" >&2; exit 1; }
+  upload
+  exit 0
+fi
 
 # set-version.js rewrites these; put them back however the script exits.
 VERSIONED_FILES=(packages/bruno-electron/package.json packages/bruno-app/package.json)
@@ -120,10 +140,5 @@ echo "==> Files in $RELEASE_DIR"
 ls -lh "$RELEASE_DIR"
 
 if [ "$UPLOAD" = true ]; then
-  if ! gh release view "$TAG" > /dev/null 2>&1; then
-    echo "==> Creating draft release $TAG (publish it on GitHub when every platform is uploaded)"
-    gh release create "$TAG" --draft --title "Hanuman $TAG" --generate-notes --target "$(git rev-parse HEAD)"
-  fi
-  echo "==> Uploading to release $TAG"
-  gh release upload "$TAG" "$RELEASE_DIR"/* --clobber
+  upload
 fi
