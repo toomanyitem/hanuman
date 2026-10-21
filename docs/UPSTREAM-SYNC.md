@@ -51,7 +51,7 @@ npm run dev                      # เปิดแอปดูหน้าแร
 | `bruno-cli/package.json` | เพิ่ม bin `hanuman` |
 | `scripts/build-electron.js` | รองรับ `ELECTRON_BUILDER_ARGS`, แก้บั๊ก `util.promisify(spawn)` ที่ทำให้สคริปต์จบด้วย exit 0 แม้ build ล้ม |
 | `.github/workflows/*` | ปิด workflow ที่ใช้ self-hosted runner, เพิ่ม `release.yml` (กดรันเอง) และ fork-invariants ใน `lint-checks.yml` |
-| ไฟล์ใหม่: `scripts/hanuman/*`, `docker/cli/Dockerfile` | build/release ในเครื่อง, ตั้งเวอร์ชัน, ตรวจ invariant, Docker image ของ CLI |
+| ไฟล์ใหม่: `scripts/hanuman/*`, `docker/cli/`, `docker/release/` | build/release ในเครื่อง, ตั้งเวอร์ชัน, ตรวจ invariant, Docker image ของ CLI |
 
 ### แบรนด์
 - ไอคอนแอปทั้งหมดใน `bruno-electron/resources/icons/`, `bruno-electron/src/about/256x256.png`, `bruno-app/public/favicon.ico` สร้างจาก `assets/brand/hanuman-icon.svg`

@@ -63,16 +63,22 @@ npm run dev                 # รันแอปแบบ dev
 ### ออก release
 build ในเครื่องตัวเองแล้วอัปโหลดขึ้น GitHub Release ด้วย [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) (ไม่กินโควตา GitHub Actions)
 
+**มีแค่ Mac เครื่องเดียวก็ทำได้ครบทุกระบบ** (ต้องมี Docker Desktop และ `gh auth login` ไว้ก่อน)
 ```bash
-# บนเครื่อง Linux: Linux (x64+arm64) + Windows (ต้องมี wine) + CLI
-sudo apt-get install rpm wine64
-scripts/hanuman/release-local.sh v0.1.0 linux win cli --upload
+npm i --legacy-peer-deps && npm run setup              # ครั้งแรกครั้งเดียว
+scripts/hanuman/release-local.sh v0.1.0 mac --upload   # macOS (Intel + Apple Silicon)
+scripts/hanuman/release-docker.sh v0.1.0 --upload      # Linux (x64+arm64) + Windows + CLI ใน Docker
+```
 
-# บน Mac: macOS (Intel + Apple Silicon)
-scripts/hanuman/release-local.sh v0.1.0 mac --upload
+หรือถ้ามีเครื่อง Linux ใช้ build Linux + Windows + CLI แทน Docker ได้
+```bash
+sudo dpkg --add-architecture i386 && sudo apt-get update
+sudo apt-get install rpm wine wine64 wine32:i386
+scripts/hanuman/release-local.sh v0.1.0 linux win cli --upload
 ```
 
 - `--upload` สร้าง release แบบ **draft** ถ้ายังไม่มี แล้วอัปโหลดไฟล์ (รันซ้ำได้ จะแทนที่ไฟล์เดิม) พอครบทุกระบบแล้วค่อยกด **Publish** บนหน้า GitHub
+- `release-docker.sh` build จาก commit ปัจจุบัน (ต้อง commit ก่อน) บน Mac ชิป Apple ให้เปิด **Use Rosetta for x86_64/amd64 emulation** ใน Docker Desktop และให้ Docker ใช้ RAM อย่างน้อย 8 GB
 - ไฟล์ที่ build ได้อยู่ที่ `dist/release/<tag>/`
 - แอป mac ที่ไม่มี Developer ID จะถูกเซ็นแบบ ad-hoc ให้อัตโนมัติ เพื่อให้เปิดบน Apple Silicon ได้
 - ถ้าไม่มีเครื่องว่าง ใช้ workflow [`release.yml`](.github/workflows/release.yml) ได้ (กดรันเองที่แท็บ Actions เท่านั้น) ซึ่งทำ Docker image ของ CLI ให้ด้วย
@@ -110,7 +116,7 @@ nvm use && npm i --legacy-peer-deps && npm run setup && npm run dev
 See [contributing.md](contributing.md), [CODING_STANDARDS.md](CODING_STANDARDS.md) and [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md).
 
 ### Releasing
-Build on your own machines with [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) and upload to a draft GitHub Release (`--upload`), then publish it once every platform is attached — Linux builds Linux x64/arm64, Windows (via wine) and the CLI; a Mac builds macOS Intel/Apple Silicon. The manual [`release.yml`](.github/workflows/release.yml) workflow does the same on GitHub Actions (including the CLI Docker images) when no machine is available.
+Build on your own machines with [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) and upload to a draft GitHub Release (`--upload`), then publish it once every platform is attached — Linux builds Linux x64/arm64, Windows (via wine) and the CLI; a Mac builds macOS Intel/Apple Silicon. A Mac with Docker Desktop can build everything: `release-local.sh <tag> mac --upload`, then [`release-docker.sh`](scripts/hanuman/release-docker.sh) `<tag> --upload` for Linux, Windows and the CLI. The manual [`release.yml`](.github/workflows/release.yml) workflow does the same on GitHub Actions (including the CLI Docker images) when no machine is available.
 
 ---
 

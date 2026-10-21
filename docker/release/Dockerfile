@@ -2,7 +2,7 @@
 # Windows installer (through wine) and the CLI bundle. Used by
 # scripts/hanuman/release-docker.sh so a Mac (or any Docker host) can build
 # what a Linux machine would, without installing rpm or wine on the host.
-FROM --platform=linux/amd64 node:22-bookworm
+FROM node:22-bookworm
 
 # rpm: rpmbuild for the .rpm targets. wine64 + wine32: electron-builder runs
 # rcedit-ia32.exe through wine to stamp the icon and version into the .exe.
