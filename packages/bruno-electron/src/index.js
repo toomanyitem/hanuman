@@ -66,6 +66,7 @@ const { loadWindowState, saveBounds, saveMaximized } = require('./utils/window')
 const { preferencesUtil, getPreferences, savePreferences } = require('./store/preferences');
 const { globalEnvironmentsManager } = require('./store/workspace-environments');
 const registerNotificationsIpc = require('./ipc/notifications');
+const registerUpdatesIpc = require('./ipc/updates');
 const registerGlobalEnvironmentsIpc = require('./ipc/global-environments');
 const registerAppDocumentIpc = require('./ipc/app-document');
 const AppDocuments = require('./app/app-documents');
@@ -536,6 +537,7 @@ app.on('ready', async () => {
   registerWorkspaceIpc(mainWindow, workspaceWatcher);
   registerApiSpecIpc(mainWindow, apiSpecWatcher);
   registerNotificationsIpc(mainWindow, collectionWatcher);
+  registerUpdatesIpc(mainWindow);
   registerFilesystemIpc(mainWindow);
   registerSystemMonitorIpc(mainWindow, systemMonitor);
   registerGitIpc(mainWindow);

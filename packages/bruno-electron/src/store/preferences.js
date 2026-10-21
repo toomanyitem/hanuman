@@ -70,6 +70,9 @@ const defaultPreferences = {
     enabled: false,
     interval: 1000
   },
+  updates: {
+    checkAutomatically: false
+  },
   display: {
     zoomPercentage: 100
   },
@@ -191,6 +194,9 @@ const preferencesSchema = Yup.object().shape({
   autoSave: Yup.object({
     enabled: Yup.boolean(),
     interval: Yup.number().min(100)
+  }),
+  updates: Yup.object({
+    checkAutomatically: Yup.boolean()
   }),
   display: Yup.object({
     zoomPercentage: Yup.number().min(50).max(150)
@@ -436,6 +442,9 @@ const preferencesUtil = {
   },
   isBetaFeatureEnabled: (featureName) => {
     return get(getPreferences(), `beta.${featureName}`, false);
+  },
+  shouldCheckForUpdatesAutomatically: () => {
+    return get(getPreferences(), 'updates.checkAutomatically', false);
   },
   getZoomPercentage: () => {
     return get(getPreferences(), 'display.zoomPercentage', 100);
