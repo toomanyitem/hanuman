@@ -7,9 +7,10 @@
 # Usage: scripts/hanuman/release-docker.sh <tag> [--upload]
 #   --upload: same as release-local.sh --upload (draft release, needs gh auth)
 #
-# Apple Silicon: the image is amd64 (wine needs x86), so enable "Use Rosetta for
-# x86_64/amd64 emulation" in Docker Desktop settings to keep it fast. Give Docker
-# at least 8 GB of memory and ~20 GB of disk.
+# Apple Silicon: the image is amd64 (wine needs x86), and the Windows step fails
+# under both Docker Desktop's Rosetta and QEMU emulation (see "Releasing" in the
+# readme), so build Windows elsewhere. Give Docker at least 8 GB of memory and
+# ~20 GB of disk.
 
 set -euo pipefail
 
