@@ -226,21 +226,26 @@ jobs:
     if: ${{ !cancelled() && needs.build-cli.result == 'success' && needs.build-desktop.result != 'failure' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: release-files
           merge-multiple: true
 
+      # Installers go to the public releases repository the app checks for
+      # updates. The workflow token can't write there, so this needs a
+      # fine-grained token with Contents: write on that repository, stored as the
+      # HANUMAN_RELEASES_TOKEN secret.
       - name: Create or update release
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.HANUMAN_RELEASES_TOKEN }}
+          GH_REPO: ${{ vars.HANUMAN_RELEASE_REPO || 'toomanyitem/hanuman-releases' }}
         run: |
           ls -la release-files
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" release-files/* --clobber
           else
-            gh release create "$RELEASE_TAG" release-files/* --title "Hanuman $RELEASE_TAG" --generate-notes
+            gh release create "$RELEASE_TAG" release-files/* --title "Hanuman $RELEASE_TAG" \
+              --notes "Built from tag $RELEASE_TAG of ${{ github.repository }}. The builds are unsigned (see the readme)."
           fi

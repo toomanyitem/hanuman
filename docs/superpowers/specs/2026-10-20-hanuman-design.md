@@ -302,4 +302,5 @@
 21. **การแจ้งเตือนในแอป** (`ipc/notifications.js`) จะดึงก็ต่อเมื่อตั้ง `HANUMAN_INFO_ENDPOINT` ไว้เท่านั้น
 22. **โลโก้:** หน้าลิงหนุมานแบบเรียบ ขนส้มหญ้าฝรั่น หน้าสีครีม สวมชฎาทอง มีติลกสีแดงที่หน้าผาก ไอคอนแอปวางบนพื้นสี่เหลี่ยมมุมมนสีคราม ไฟล์ต้นฉบับอยู่ที่ `assets/brand/` คอมโพเนนต์ `components/Bruno` เปลี่ยนเป็น re-export ของ `components/HanumanLogo` เพื่อไม่ต้องแก้จุดที่ upstream import
 23. **ข้อความที่ยังคงคำว่า Bruno โดยตั้งใจ:** ชื่อรูปแบบไฟล์ ("Bruno collection", "Bruno's native file format"), ลิงก์ไปเอกสาร docs.usebruno.com, ค่า `exportedUsing` ในไฟล์ export, marker ใน `.gitignore` ที่ upstream จัดการ, prompt ของ AI ที่อธิบาย API `bru.*` และเครดิตใน About/NOTICE
+24. **ไฟล์ติดตั้งและการแจ้งเวอร์ชันใหม่:** ไฟล์ติดตั้งเผยแพร่ใน repo public แยก `toomanyitem/hanuman-releases` ส่วนโค้ดยังเป็น private แอปเช็กเวอร์ชันใหม่จาก GitHub API ของ repo นั้น (ไม่ต้องฝัง token) เช็กเมื่อผู้ใช้สั่งผ่านเมนู/ปุ่ม หรือตอนเปิดแอปถ้าผู้ใช้เปิด `updates.checkAutomatically` เอง (ค่าเริ่มต้นปิด ตามหลักไม่ส่งข้อมูลออกโดยไม่สั่ง) แสดงแค่แจ้งเตือนและเปิดหน้าดาวน์โหลด ยังไม่ติดตั้งเอง เพราะ macOS ต้องเซ็นโค้ดก่อนถึงจะอัปเดตตัวเองได้
 

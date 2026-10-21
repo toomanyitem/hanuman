@@ -18,10 +18,11 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 - **ไม่มี telemetry และไม่มี analytics** แอปไม่ส่งข้อมูลออกนอกเครื่อง เว้นแต่คุณสั่ง (เช่น ส่ง request)
 - OAuth2 ผ่าน system browser รับ callback ที่ `http://127.0.0.1:9876/callback` ในเครื่อง ไม่ผ่าน server ภายนอก
 - ติดตั้งคู่กับ Bruno ได้ (ใช้ `hanuman://` และโฟลเดอร์ข้อมูลแยกกัน)
+- แจ้งเมื่อมีเวอร์ชันใหม่: เมนู **Help → Check for Updates…** หรือ **Preferences → General → Updates** (เช็กอัตโนมัติตอนเปิดแอปต้องเปิดเอง ค่าเริ่มต้นปิด) แอปจะถาม GitHub ว่า release ล่าสุดคือเวอร์ชันอะไร ไม่ส่งข้อมูลอื่น
 - ฟีเจอร์ที่จะเพิ่มต่อไปดูได้ใน [เอกสารออกแบบ](docs/superpowers/specs/2026-10-20-hanuman-design.md): Git UI แบบเต็ม, data-driven testing, secret manager, Socket.IO/MQTT, load test, Mock Server แบบเต็ม, Monitor และ API Docs แบบออฟไลน์
 
 ### ติดตั้ง
-ดาวน์โหลดจากหน้า [Releases](https://github.com/toomanyitem/hanuman/releases) (ต้องเป็น collaborator ของ repo นี้)
+ดาวน์โหลดจากหน้า [Releases](https://github.com/toomanyitem/hanuman-releases/releases) (repo แยกที่เปิดเป็น public ไว้สำหรับไฟล์ติดตั้งโดยเฉพาะ)
 
 | ระบบ | ชิป | ไฟล์ |
 |---|---|---|
@@ -37,7 +38,7 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 - **Windows:** ถ้าขึ้น SmartScreen ให้กด **More info → Run anyway**
 - **Linux (AppImage):** `chmod +x hanuman_*.AppImage` แล้วเปิดได้เลย
 
-**CLI:** ดาวน์โหลด `hanuman-cli_<version>.tgz` จาก Releases แล้วรัน `npm i -g ./hanuman-cli_<version>.tgz` จะได้คำสั่ง `hanuman` (และ `bru`) ใช้ได้ทุกระบบที่มี Node.js 22
+**CLI:** ดาวน์โหลด `hanuman-cli_<version>.tgz` จาก [Releases](https://github.com/toomanyitem/hanuman-releases/releases) แล้วรัน `npm i -g ./hanuman-cli_<version>.tgz` จะได้คำสั่ง `hanuman` (และ `bru`) ใช้ได้ทุกระบบที่มี Node.js 22
 
 **CLI ผ่าน Docker** (amd64/arm64, มีแบบ `alpine` และ `debian`):
 ```bash
@@ -77,11 +78,11 @@ sudo apt-get install rpm wine wine64 wine32:i386
 scripts/hanuman/release-local.sh v0.1.0 linux win cli --upload
 ```
 
-- `--upload` สร้าง release แบบ **draft** ถ้ายังไม่มี แล้วอัปโหลดไฟล์ (รันซ้ำได้ จะแทนที่ไฟล์เดิม) พอครบทุกระบบแล้วค่อยกด **Publish** บนหน้า GitHub
+- `--upload` สร้าง release แบบ **draft** ใน [`toomanyitem/hanuman-releases`](https://github.com/toomanyitem/hanuman-releases) ถ้ายังไม่มี แล้วอัปโหลดไฟล์ (รันซ้ำได้ จะแทนที่ไฟล์เดิม) พอครบทุกระบบแล้วค่อยกด **Publish** บนหน้า GitHub แอปที่ติดตั้งไว้จะเห็นเวอร์ชันใหม่หลัง Publish เท่านั้น
 - `release-docker.sh` build จาก commit ปัจจุบัน (ต้อง commit ก่อน) บน Mac ชิป Apple ให้เปิด **Use Rosetta for x86_64/amd64 emulation** ใน Docker Desktop และให้ Docker ใช้ RAM อย่างน้อย 8 GB
 - ไฟล์ที่ build ได้อยู่ที่ `dist/release/<tag>/`
 - แอป mac ที่ไม่มี Developer ID จะถูกเซ็นแบบ ad-hoc ให้อัตโนมัติ เพื่อให้เปิดบน Apple Silicon ได้
-- ถ้าไม่มีเครื่องว่าง ใช้ workflow [`release.yml`](.github/workflows/release.yml) ได้ (กดรันเองที่แท็บ Actions เท่านั้น) ซึ่งทำ Docker image ของ CLI ให้ด้วย
+- ถ้าไม่มีเครื่องว่าง ใช้ workflow [`release.yml`](.github/workflows/release.yml) ได้ (กดรันเองที่แท็บ Actions เท่านั้น) ซึ่งทำ Docker image ของ CLI ให้ด้วย ต้องตั้ง secret `HANUMAN_RELEASES_TOKEN` (fine-grained token ที่มีสิทธิ์ Contents: write ใน `hanuman-releases`) ก่อน
 
 ---
 
@@ -92,10 +93,11 @@ scripts/hanuman/release-local.sh v0.1.0 linux win cli --upload
 - **No telemetry or analytics.** Nothing leaves your machine unless you ask (for example, by sending a request).
 - System-browser OAuth2 uses a local loopback callback (`http://127.0.0.1:9876/callback`) instead of a vendor-hosted redirect.
 - Installs side by side with Bruno (its own `hanuman://` protocol and data folder).
+- Update notices: **Help → Check for Updates…** or **Preferences → General → Updates** (the check at startup is opt-in). The app only asks GitHub for the latest release of `toomanyitem/hanuman-releases`.
 - Roadmap: see the [design spec](docs/superpowers/specs/2026-10-20-hanuman-design.md) — full Git UI, data-driven testing, secret managers, Socket.IO/MQTT, load testing, a full mock server, monitors, and offline API docs.
 
 ### Install
-Download from [Releases](https://github.com/toomanyitem/hanuman/releases) (you must be a collaborator on this repository).
+Download from [Releases](https://github.com/toomanyitem/hanuman-releases/releases), a public repository that only holds the installers.
 
 Builds are **unsigned**:
 - **macOS:** right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine /Applications/Hanuman.app`.
@@ -116,7 +118,7 @@ nvm use && npm i --legacy-peer-deps && npm run setup && npm run dev
 See [contributing.md](contributing.md), [CODING_STANDARDS.md](CODING_STANDARDS.md) and [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md).
 
 ### Releasing
-Build on your own machines with [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) and upload to a draft GitHub Release (`--upload`), then publish it once every platform is attached — Linux builds Linux x64/arm64, Windows (via wine) and the CLI; a Mac builds macOS Intel/Apple Silicon. A Mac with Docker Desktop can build everything: `release-local.sh <tag> mac --upload`, then [`release-docker.sh`](scripts/hanuman/release-docker.sh) `<tag> --upload` for Linux, Windows and the CLI. The manual [`release.yml`](.github/workflows/release.yml) workflow does the same on GitHub Actions (including the CLI Docker images) when no machine is available.
+Build on your own machines with [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) and upload to a draft release in [`toomanyitem/hanuman-releases`](https://github.com/toomanyitem/hanuman-releases) (`--upload`), then publish it once every platform is attached (installed apps only see published releases) — Linux builds Linux x64/arm64, Windows (via wine) and the CLI; a Mac builds macOS Intel/Apple Silicon. A Mac with Docker Desktop can build everything: `release-local.sh <tag> mac --upload`, then [`release-docker.sh`](scripts/hanuman/release-docker.sh) `<tag> --upload` for Linux, Windows and the CLI. The manual [`release.yml`](.github/workflows/release.yml) workflow does the same on GitHub Actions (including the CLI Docker images) when no machine is available.
 
 ---
 
