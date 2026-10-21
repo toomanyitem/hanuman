@@ -6,7 +6,8 @@ FROM node:22-bookworm
 
 # rpm: rpmbuild for the .rpm targets. wine64 + wine32: electron-builder runs
 # rcedit-ia32.exe through wine to stamp the icon and version into the .exe.
-RUN dpkg --add-architecture i386 \
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
+  && dpkg --add-architecture i386 \
   && apt-get update \
   && apt-get install -y --no-install-recommends rpm wine wine64 wine32:i386 xvfb xauth \
   && rm -rf /var/lib/apt/lists/*
