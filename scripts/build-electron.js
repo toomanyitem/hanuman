@@ -123,9 +123,14 @@ async function main() {
       osArg = 'linux';
     }
 
-    await execCommandWithOutput(`npm run dist:${osArg} --workspace=packages/bruno-electron`);
+    // ELECTRON_BUILDER_ARGS lets CI pick explicit targets/arches, e.g. `--linux AppImage deb --x64`.
+    const distCommand = process.env.ELECTRON_BUILDER_ARGS
+      ? `npm exec --workspace=packages/bruno-electron -- electron-builder ${process.env.ELECTRON_BUILDER_ARGS} --config electron-builder-config.js`
+      : `npm run dist:${osArg} --workspace=packages/bruno-electron`;
+    await execCommandWithOutput(distCommand);
   } catch (error) {
     console.error('An error occurred:', error);
+    process.exitCode = 1;
   }
 }
 

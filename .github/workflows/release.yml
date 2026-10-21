@@ -1,0 +1,136 @@
+name: Release
+
+# Push a tag like `v0.1.0` to build the desktop apps and the CLI bundle and
+# attach them to a GitHub Release. Builds are unsigned (see readme.md).
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to (re)build, e.g. v0.1.0'
+        required: true
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  plan:
+    name: Plan builds
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      # macOS runners burn private-repo minutes 10x; set the repository variable
+      # HANUMAN_SKIP_MAC_BUILD=true to build mac locally instead (see readme.md).
+      - id: matrix
+        env:
+          SKIP_MAC: ${{ vars.HANUMAN_SKIP_MAC_BUILD }}
+        run: |
+          targets='[
+            {"name":"macOS","os":"macos-latest","builder-args":"--mac dmg zip --x64 --arm64"},
+            {"name":"Windows","os":"windows-latest","builder-args":"--win nsis --x64"},
+            {"name":"Linux","os":"ubuntu-latest","builder-args":"--linux AppImage deb --x64"}
+          ]'
+          if [ "$SKIP_MAC" = "true" ]; then
+            targets=$(echo "$targets" | jq -c 'map(select(.name != "macOS"))')
+          fi
+          echo "matrix=$(echo "$targets" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
+
+  build-desktop:
+    name: Build ${{ matrix.name }}
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Setup Node Dependencies
+        uses: ./.github/actions/common/setup-node-deps
+
+      - name: Set version from tag
+        shell: bash
+        run: node scripts/hanuman/set-version.js "${RELEASE_TAG}"
+
+      - name: Build web app
+        shell: bash
+        run: npm run build:web
+
+      - name: Build desktop app
+        shell: bash
+        env:
+          ELECTRON_BUILDER_ARGS: ${{ matrix.builder-args }} --publish never
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: node scripts/build-electron.js
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            packages/bruno-electron/out/*.dmg
+            packages/bruno-electron/out/*.zip
+            packages/bruno-electron/out/*.exe
+            packages/bruno-electron/out/*.AppImage
+            packages/bruno-electron/out/*.deb
+
+  build-cli:
+    name: Build CLI bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Setup Node Dependencies
+        uses: ./.github/actions/common/setup-node-deps
+
+      - name: Bundle CLI
+        run: node scripts/bundle-cli.js
+
+      - name: Upload CLI bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli
+          if-no-files-found: error
+          path: dist/cli-bundle/*.tgz
+
+  release:
+    name: Publish GitHub Release
+    needs: [build-desktop, build-cli]
+    if: ${{ !cancelled() && needs.build-cli.result == 'success' && needs.build-desktop.result != 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -la release-files
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-files/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release-files/* --title "Hanuman $RELEASE_TAG" --generate-notes
+          fi

@@ -7,7 +7,6 @@ import MigrateCollectionToYmlModal from 'components/MigrateCollectionToYmlModal'
 import useIpcEvents from './useIpcEvents';
 import StyledWrapper from './StyledWrapper';
 import useOpenAPISyncPolling from './useOpenAPISyncPolling';
-import useChangelogOnUpdate from './useChangelogOnUpdate';
 import { version } from '../../../package.json';
 import { checkpoint, startBenchmarkFlush, stopBenchmarkFlush, flushEvents } from 'utils/benchmark';
 
@@ -16,7 +15,6 @@ export const AppContext = React.createContext();
 export const AppProvider = (props) => {
   useIpcEvents();
   useOpenAPISyncPolling();
-  useChangelogOnUpdate();
   const dispatch = useDispatch();
 
   useEffect(() => {
