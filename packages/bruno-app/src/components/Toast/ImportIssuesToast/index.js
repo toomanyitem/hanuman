@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { IconAlertCircle, IconBrandGithub, IconCopy, IconX } from '@tabler/icons';
 import StyledWrapper from './StyledWrapper';
+import { HANUMAN_ISSUES_URL } from 'utils/hanuman';
 
-const GITHUB_ISSUES_URL = 'https://github.com/usebruno/bruno/issues/new';
+const GITHUB_ISSUES_URL = `${HANUMAN_ISSUES_URL}/new`;
 const MAX_URL_LENGTH = 8000;
 
 const ImportIssuesToastContent = ({ t, issues, summary }) => {

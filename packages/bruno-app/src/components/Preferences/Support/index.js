@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons';
 import StyledWrapper from './StyledWrapper';
 import { useTranslation } from 'react-i18next';
+import { HANUMAN_REPO_URL, HANUMAN_ISSUES_URL } from 'utils/hanuman';
 
 const SUPPORT_GROUPS = [
   {
@@ -26,7 +27,7 @@ const SUPPORT_GROUPS = [
       {
         key: 'report-issues',
         icon: IconSpeakerphone,
-        url: 'https://github.com/usebruno/bruno/issues',
+        url: HANUMAN_ISSUES_URL,
         label: 'COMMON.REPORT_ISSUES',
         description: 'SUPPORT.REPORT_ISSUES_DESCRIPTION'
       }
@@ -39,7 +40,7 @@ const SUPPORT_GROUPS = [
       {
         key: 'github',
         icon: IconBrandGithub,
-        url: 'https://github.com/usebruno/bruno',
+        url: HANUMAN_REPO_URL,
         label: 'COMMON.GITHUB',
         description: 'SUPPORT.GITHUB_DESCRIPTION'
       },

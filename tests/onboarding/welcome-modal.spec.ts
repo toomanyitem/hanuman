@@ -18,7 +18,7 @@ test.describe('Welcome Modal', () => {
       await expect(welcomeModal).toBeVisible();
 
       // Verify welcome content is displayed
-      await expect(welcomeModal.getByText('Welcome to Bruno')).toBeVisible();
+      await expect(welcomeModal.getByText('Welcome to Hanuman')).toBeVisible();
       await expect(welcomeModal.getByText('A fast, Git-friendly, and open-source API client.')).toBeVisible();
     } finally {
       if (app) {
@@ -78,7 +78,7 @@ test.describe('Welcome Modal', () => {
       const welcomeModal = page.getByTestId('welcome-modal');
 
       // Step 1: Welcome
-      await expect(welcomeModal.getByText('Welcome to Bruno')).toBeVisible();
+      await expect(welcomeModal.getByText('Welcome to Hanuman')).toBeVisible();
       await welcomeModal.getByRole('button', { name: 'Get Started' }).click();
 
       // Step 2: Theme selection

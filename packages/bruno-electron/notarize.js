@@ -4,11 +4,11 @@ const path = require('path');
 const electron_notarize = require('electron-notarize');
 
 const notarize = async function (params) {
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' || !process.env.APPLE_ID) {
     return;
   }
 
-  let appId = 'com.usebruno.app';
+  let appId = 'com.toomanyitem.hanuman';
 
   let appPath = path.join(params.appOutDir, `${params.packager.appInfo.productFilename}.app`);
   if (!fs.existsSync(appPath)) {

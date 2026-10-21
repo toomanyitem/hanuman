@@ -4,10 +4,11 @@
   "license": "MIT",
   "main": "src/index.js",
   "bin": {
-    "bru": "./bin/bru.js"
+    "bru": "./bin/bru.js",
+    "hanuman": "./bin/bru.js"
   },
   "bugs": {
-    "url": "https://github.com/usebruno/bruno/issues"
+    "url": "https://github.com/toomanyitem/hanuman/issues"
   },
   "repository": {
     "type": "git",

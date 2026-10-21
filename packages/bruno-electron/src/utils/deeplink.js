@@ -1,13 +1,15 @@
 const { handleOauth2ProtocolUrl } = require('./oauth2-protocol-handler');
 
+const APP_PROTOCOL = 'hanuman';
+
 // Store appProtocolUrl - will be handled in the `did-finish-load` event handler
 const getAppProtocolUrlFromArgv = (argv) => {
-  return argv.find((arg) => arg.startsWith('bruno://'));
+  return argv.find((arg) => arg.startsWith(`${APP_PROTOCOL}://`));
 };
 
 // Handle app protocol URLs
 const handleAppProtocolUrl = (url) => {
-  // Handle OAuth2 callback URLs - `bruno://app/oauth2/callback`
+  // Handle OAuth2 callback URLs - `hanuman://app/oauth2/callback`
   if (isOauth2Url(url)) {
     handleOauth2ProtocolUrl(url);
   }
@@ -27,4 +29,4 @@ const isOauth2Url = (url) => {
   return false;
 };
 
-module.exports = { handleAppProtocolUrl, getAppProtocolUrlFromArgv };
+module.exports = { APP_PROTOCOL, handleAppProtocolUrl, getAppProtocolUrlFromArgv };

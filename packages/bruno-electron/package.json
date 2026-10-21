@@ -1,11 +1,11 @@
 {
   "version": "2.0.0",
-  "name": "bruno",
-  "description": "Opensource API Client for Exploring and Testing APIs",
-  "homepage": "https://www.usebruno.com",
+  "name": "hanuman",
+  "description": "Hanuman - an open-source API client based on Bruno",
+  "homepage": "https://github.com/toomanyitem/hanuman",
   "repository": {
     "type": "git",
-    "url": "https://github.com/usebruno/bruno.git"
+    "url": "https://github.com/toomanyitem/hanuman.git"
   },
   "private": true,
   "main": "src/index.js",
