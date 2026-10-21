@@ -1,10 +1,13 @@
 name: Release
 
-# Push a tag like `v0.1.0` to build the desktop apps and the CLI bundle and
-# attach them to a GitHub Release. Builds are unsigned (see readme.md).
+# Builds every platform Bruno ships — desktop apps for macOS, Windows and Linux
+# (x64 + arm64), a snap, the CLI tarball and multi-arch CLI Docker images — and
+# attaches them to a GitHub Release. Builds are unsigned (see readme.md).
+#
+# Manual only: releases are normally built locally with
+# scripts/hanuman/release-local.sh to save private-repo Actions minutes. Run this
+# from the Actions tab when a machine isn't available.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
@@ -12,11 +15,11 @@ on:
         required: true
 
 concurrency:
-  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  group: release-${{ github.event.inputs.tag }}
   cancel-in-progress: false
 
 env:
-  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+  RELEASE_TAG: ${{ github.event.inputs.tag }}
 
 jobs:
   plan:
@@ -27,14 +30,15 @@ jobs:
     steps:
       # macOS runners burn private-repo minutes 10x; set the repository variable
       # HANUMAN_SKIP_MAC_BUILD=true to build mac locally instead (see readme.md).
+      # Targets and arches come from packages/bruno-electron/electron-builder-config.js.
       - id: matrix
         env:
           SKIP_MAC: ${{ vars.HANUMAN_SKIP_MAC_BUILD }}
         run: |
           targets='[
-            {"name":"macOS","os":"macos-latest","builder-args":"--mac dmg zip --x64 --arm64"},
-            {"name":"Windows","os":"windows-latest","builder-args":"--win nsis --x64"},
-            {"name":"Linux","os":"ubuntu-latest","builder-args":"--linux AppImage deb --x64"}
+            {"name":"macOS","os":"macos-latest","builder-args":"--mac"},
+            {"name":"Windows","os":"windows-latest","builder-args":"--win"},
+            {"name":"Linux","os":"ubuntu-latest","builder-args":"--linux"}
           ]'
           if [ "$SKIP_MAC" = "true" ]; then
             targets=$(echo "$targets" | jq -c 'map(select(.name != "macOS"))')
@@ -45,7 +49,7 @@ jobs:
     name: Build ${{ matrix.name }}
     needs: plan
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       contents: read
     strategy:
@@ -58,6 +62,24 @@ jobs:
 
       - name: Setup Node Dependencies
         uses: ./.github/actions/common/setup-node-deps
+
+      # npm only installs node-pty's prebuilt binary for the runner's own arch;
+      # cross-arch builds need both. Keep in sync with forceInstallPlatformDeps()
+      # in scripts/setup.js.
+      - name: Install node-pty for every arch
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            macOS)   platform=darwin ;;
+            Windows) platform=win32 ;;
+            Linux)   platform=linux ;;
+          esac
+          npm i --legacy-peer-deps --no-save --force \
+            "@lydell/node-pty-${platform}-arm64@1.1.0" "@lydell/node-pty-${platform}-x64@1.1.0"
+
+      - name: Install rpm tooling
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
 
       - name: Set version from tag
         shell: bash
@@ -81,15 +103,20 @@ jobs:
           if-no-files-found: error
           path: |
             packages/bruno-electron/out/*.dmg
+            packages/bruno-electron/out/*.pkg
             packages/bruno-electron/out/*.zip
             packages/bruno-electron/out/*.exe
             packages/bruno-electron/out/*.AppImage
             packages/bruno-electron/out/*.deb
+            packages/bruno-electron/out/*.rpm
 
-  build-cli:
-    name: Build CLI bundle
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  build-snap:
+    name: Build Snap
+    # electron-builder 24 only emits core20/core22 snaps, so build on 22.04.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    # A snap problem should not hold back the other installers.
+    continue-on-error: true
     permissions:
       contents: read
     steps:
@@ -100,19 +127,102 @@ jobs:
       - name: Setup Node Dependencies
         uses: ./.github/actions/common/setup-node-deps
 
+      - name: Set version from tag
+        run: node scripts/hanuman/set-version.js "${RELEASE_TAG}"
+
+      - name: Install snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Build snap
+        # Destructive mode installs build packages on the host, which needs root.
+        run: sudo -E env "PATH=$PATH" ./scripts/build-snap-local.sh
+
+      - name: Name the snap after Hanuman
+        run: |
+          cd packages/bruno-electron/out
+          for f in *.snap; do sudo mv "$f" "hanuman_${f#*_}" 2>/dev/null || true; done
+          ls -la *.snap
+
+      - name: Upload snap
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-Snap
+          if-no-files-found: error
+          path: packages/bruno-electron/out/*.snap
+
+  build-cli:
+    name: Build CLI bundle and Docker images
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Setup Node Dependencies
+        uses: ./.github/actions/common/setup-node-deps
+
       - name: Bundle CLI
-        run: node scripts/bundle-cli.js
+        run: |
+          node scripts/bundle-cli.js
+          mkdir -p cli-release
+          cp dist/cli-bundle/*.tgz "cli-release/hanuman-cli_${RELEASE_TAG#v}.tgz"
+          cp dist/cli-bundle/*.tgz docker/cli/hanuman-cli.tgz
 
       - name: Upload CLI bundle
         uses: actions/upload-artifact@v4
         with:
           name: cli
           if-no-files-found: error
-          path: dist/cli-bundle/*.tgz
+          path: cli-release/*.tgz
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/hanuman-cli" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push alpine image
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/cli
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BASE_IMAGE=node:22-alpine
+            HANUMAN_VERSION=${{ env.RELEASE_TAG }}
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ env.RELEASE_TAG }}
+            ${{ steps.image.outputs.name }}:${{ env.RELEASE_TAG }}-alpine
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:alpine
+
+      - name: Build and push debian image
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/cli
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BASE_IMAGE=node:22-slim
+            HANUMAN_VERSION=${{ env.RELEASE_TAG }}
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ env.RELEASE_TAG }}-debian
+            ${{ steps.image.outputs.name }}:debian
 
   release:
     name: Publish GitHub Release
-    needs: [build-desktop, build-cli]
+    needs: [build-desktop, build-snap, build-cli]
     if: ${{ !cancelled() && needs.build-cli.result == 'success' && needs.build-desktop.result != 'failure' }}
     runs-on: ubuntu-latest
     permissions:

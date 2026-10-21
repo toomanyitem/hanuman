@@ -23,6 +23,7 @@ const config = {
     }
   ],
   files: ['**/*'],
+  afterPack: 'adhoc-sign.js',
   afterSign: 'notarize.js',
   mac: {
     artifactName: '${name}_${version}_${arch}_${os}.${ext}',

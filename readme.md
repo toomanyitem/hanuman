@@ -23,19 +23,27 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 ### ติดตั้ง
 ดาวน์โหลดจากหน้า [Releases](https://github.com/toomanyitem/hanuman/releases) (ต้องเป็น collaborator ของ repo นี้)
 
-| ระบบ | ไฟล์ |
-|---|---|
-| macOS (Apple Silicon) | `hanuman_<version>_arm64_mac.dmg` |
-| macOS (Intel) | `hanuman_<version>_x64_mac.dmg` |
-| Windows | `hanuman_<version>_x64_win.exe` |
-| Linux | `.AppImage` หรือ `.deb` |
+| ระบบ | ชิป | ไฟล์ |
+|---|---|---|
+| macOS | Apple Silicon | `hanuman_<version>_arm64_mac.dmg` (หรือ `.pkg`, `.zip`) |
+| macOS | Intel | `hanuman_<version>_x64_mac.dmg` (หรือ `.pkg`, `.zip`) |
+| Windows | x64 และ ARM64 | `hanuman_<version>_win.exe` (ตัวเดียวเลือกชิปให้เอง) |
+| Linux | x64 | `hanuman_<version>_x86_64_linux.AppImage`, `_amd64_linux.deb`, `_x86_64_linux.rpm` |
+| Linux | arm64 | `hanuman_<version>_arm64_linux.AppImage`, `_arm64_linux.deb`, `_aarch64_linux.rpm` |
+| Linux (Snap) | x64 | `hanuman_<version>_amd64_linux.snap` → `sudo snap install --dangerous <ไฟล์>` |
 
 **แอปยังไม่ได้เซ็นโค้ด** จึงต้องทำเพิ่มครั้งแรก:
 - **macOS:** คลิกขวาที่แอปแล้วเลือก **Open** หรือรัน `xattr -dr com.apple.quarantine /Applications/Hanuman.app`
 - **Windows:** ถ้าขึ้น SmartScreen ให้กด **More info → Run anyway**
 - **Linux (AppImage):** `chmod +x hanuman_*.AppImage` แล้วเปิดได้เลย
 
-**CLI:** ดาวน์โหลดไฟล์ `.tgz` จาก Releases แล้วรัน `npm i -g ./usebruno-cli-*.tgz` จะได้คำสั่ง `hanuman` (และ `bru`)
+**CLI:** ดาวน์โหลด `hanuman-cli_<version>.tgz` จาก Releases แล้วรัน `npm i -g ./hanuman-cli_<version>.tgz` จะได้คำสั่ง `hanuman` (และ `bru`) ใช้ได้ทุกระบบที่มี Node.js 22
+
+**CLI ผ่าน Docker** (amd64/arm64, มีแบบ `alpine` และ `debian`):
+```bash
+docker login ghcr.io            # ใช้ GitHub token ที่มีสิทธิ์ read:packages
+docker run --rm -v "$PWD":/collection ghcr.io/toomanyitem/hanuman-cli run
+```
 
 ### แชร์ collection กับทีมผ่าน Git
 1. สร้าง workspace หรือ collection ในโฟลเดอร์ที่เป็น Git repo (หรือ `git init` ในโฟลเดอร์นั้น)
@@ -53,15 +61,21 @@ npm run dev                 # รันแอปแบบ dev
 รายละเอียดเพิ่มเติม: [contributing.md](contributing.md), [CODING_STANDARDS.md](CODING_STANDARDS.md) และ [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md) (วิธีดึงอัปเดตจาก Bruno)
 
 ### ออก release
-1. push tag เช่น `git tag v0.1.0 && git push origin v0.1.0`
-2. workflow [`release.yml`](.github/workflows/release.yml) จะ build ทั้ง macOS, Windows, Linux และ CLI แล้วสร้าง Release ให้อัตโนมัติ
-3. runner macOS กินโควตา Actions ของ repo private มาก ถ้าจะ build mac เองในเครื่อง ให้ตั้ง repository variable `HANUMAN_SKIP_MAC_BUILD=true` แล้วรัน:
-   ```bash
-   node scripts/hanuman/set-version.js v0.1.0
-   npm run build:web
-   ELECTRON_BUILDER_ARGS="--mac dmg zip --x64 --arm64 --publish never" node scripts/build-electron.js
-   gh release upload v0.1.0 packages/bruno-electron/out/*.dmg packages/bruno-electron/out/*.zip
-   ```
+build ในเครื่องตัวเองแล้วอัปโหลดขึ้น GitHub Release ด้วย [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) (ไม่กินโควตา GitHub Actions)
+
+```bash
+# บนเครื่อง Linux: Linux (x64+arm64) + Windows (ต้องมี wine) + CLI
+sudo apt-get install rpm wine64
+scripts/hanuman/release-local.sh v0.1.0 linux win cli --upload
+
+# บน Mac: macOS (Intel + Apple Silicon)
+scripts/hanuman/release-local.sh v0.1.0 mac --upload
+```
+
+- `--upload` สร้าง release แบบ **draft** ถ้ายังไม่มี แล้วอัปโหลดไฟล์ (รันซ้ำได้ จะแทนที่ไฟล์เดิม) พอครบทุกระบบแล้วค่อยกด **Publish** บนหน้า GitHub
+- ไฟล์ที่ build ได้อยู่ที่ `dist/release/<tag>/`
+- แอป mac ที่ไม่มี Developer ID จะถูกเซ็นแบบ ad-hoc ให้อัตโนมัติ เพื่อให้เปิดบน Apple Silicon ได้
+- ถ้าไม่มีเครื่องว่าง ใช้ workflow [`release.yml`](.github/workflows/release.yml) ได้ (กดรันเองที่แท็บ Actions เท่านั้น) ซึ่งทำ Docker image ของ CLI ให้ด้วย
 
 ---
 
@@ -82,7 +96,9 @@ Builds are **unsigned**:
 - **Windows:** on the SmartScreen prompt choose **More info → Run anyway**.
 - **Linux (AppImage):** `chmod +x hanuman_*.AppImage`.
 
-**CLI:** download the `.tgz` from Releases and run `npm i -g ./usebruno-cli-*.tgz` to get the `hanuman` (and `bru`) command.
+Every platform Bruno ships is built: macOS (Intel, Apple Silicon: dmg/pkg/zip), Windows (one installer for x64 and ARM64), Linux x64/arm64 (AppImage, deb, rpm) and a snap.
+
+**CLI:** download `hanuman-cli_<version>.tgz` from Releases and run `npm i -g ./hanuman-cli_<version>.tgz` to get the `hanuman` (and `bru`) command, or use the `ghcr.io/toomanyitem/hanuman-cli` Docker image (amd64/arm64, `alpine` or `debian`).
 
 ### Share collections through Git
 Keep the workspace or collection in a Git repository, commit the `.yml`/`.bru` files and push to any Git host. Teammates clone and open the collection. Keep secrets in the collection's git-ignored `.env` file or in secret environment variables — never commit them.
@@ -94,7 +110,7 @@ nvm use && npm i --legacy-peer-deps && npm run setup && npm run dev
 See [contributing.md](contributing.md), [CODING_STANDARDS.md](CODING_STANDARDS.md) and [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md).
 
 ### Releasing
-Push a `v*` tag; [`release.yml`](.github/workflows/release.yml) builds macOS, Windows, Linux and the CLI bundle and publishes a GitHub Release. Set the repository variable `HANUMAN_SKIP_MAC_BUILD=true` to build macOS locally instead (commands above).
+Build on your own machines with [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) and upload to a draft GitHub Release (`--upload`), then publish it once every platform is attached — Linux builds Linux x64/arm64, Windows (via wine) and the CLI; a Mac builds macOS Intel/Apple Silicon. The manual [`release.yml`](.github/workflows/release.yml) workflow does the same on GitHub Actions (including the CLI Docker images) when no machine is available.
 
 ---
 
