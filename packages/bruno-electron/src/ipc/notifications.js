@@ -2,8 +2,15 @@ require('dotenv').config();
 const { ipcMain } = require('electron');
 const fetch = require('node-fetch');
 
+// Hanuman: never phone home by default. Notifications are only fetched when the
+// user explicitly points the app at an endpoint they control.
+const getNotificationsEndpoint = () => process.env.HANUMAN_INFO_ENDPOINT || process.env.BRUNO_INFO_ENDPOINT;
+
 const fetchNotifications = async () => {
-  const url = process.env.BRUNO_INFO_ENDPOINT || 'https://appinfo.usebruno.com';
+  const url = getNotificationsEndpoint();
+  if (!url) {
+    return [];
+  }
   const data = await fetch(url).then((res) => res.json());
   return data?.notifications || [];
 };

@@ -1,5 +1,6 @@
 const { shell } = require('electron');
-const { registerOauth2AuthorizationRequest, rejectOauth2AuthorizationRequest } = require('../../utils/oauth2-protocol-handler');
+const { registerOauth2AuthorizationRequest, rejectOauth2AuthorizationRequest, handleOauth2ProtocolUrl } = require('../../utils/oauth2-protocol-handler');
+const { isLoopbackCallbackUrl, startOauth2LoopbackServer } = require('../../utils/oauth2-loopback-server');
 
 const authorizeUserInSystemBrowser = ({ authorizeUrl, callbackUrl, grantType = 'authorization_code', expectedState = null }) => {
   return new Promise((resolve, reject) => {
@@ -37,8 +38,11 @@ const authorizeUserInSystemBrowser = ({ authorizeUrl, callbackUrl, grantType = '
 
     debugInfo.data.push(authorizationRequest);
 
+    let closeLoopbackServer = () => {};
+
     const wrappedResolve = (value) => {
       clearTimeout(timeout);
+      closeLoopbackServer();
       if (grantType === 'implicit') {
         resolve({ implicitTokens: value, debugInfo });
       } else {
@@ -48,15 +52,27 @@ const authorizeUserInSystemBrowser = ({ authorizeUrl, callbackUrl, grantType = '
 
     const wrappedReject = (error) => {
       clearTimeout(timeout);
+      closeLoopbackServer();
       reject(error);
     };
 
     registerOauth2AuthorizationRequest(wrappedResolve, wrappedReject, debugInfo, expectedState);
 
-    // Open system browser
-    shell.openExternal(modifiedAuthorizeUrl).catch((error) => {
+    const openSystemBrowser = () => shell.openExternal(modifiedAuthorizeUrl).catch((error) => {
       rejectOauth2AuthorizationRequest(error);
     });
+
+    if (!isLoopbackCallbackUrl(callbackUrl)) {
+      openSystemBrowser();
+      return;
+    }
+
+    startOauth2LoopbackServer({ callbackUrl, onCallback: handleOauth2ProtocolUrl })
+      .then(({ close }) => {
+        closeLoopbackServer = close;
+        openSystemBrowser();
+      })
+      .catch((error) => rejectOauth2AuthorizationRequest(error));
   });
 };
 

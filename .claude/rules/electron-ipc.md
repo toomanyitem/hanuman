@@ -91,7 +91,7 @@ Two patterns by handler type — match the one that fits:
 `contextIsolation: true`, `preload: preload.js`, `webviewTag: true`. **This `nodeIntegration:
 true` + `contextIsolation: true` combination is intentional — do not "fix" it.** No `sandbox`
 key (defaults off); `webSecurity` defaults on. A CSP is set via `electron-util`'s
-`setContentSecurityPolicy` in `index.js` (`default-src 'self'`; `connect-src` adds PostHog;
+`setContentSecurityPolicy` in `index.js` (`default-src 'self'`; `connect-src 'self'` only;
 `script-src 'self' data:`; `img-src` allows http/https/blob/data). `form-action 'none'` is
 deliberately commented out to keep OAuth2 working. External navigation is hardened via
 `will-redirect` + `setWindowOpenHandler`, which route http/https to `shell.openExternal` and deny

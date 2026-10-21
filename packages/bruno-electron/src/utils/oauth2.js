@@ -7,8 +7,9 @@ const { makeAxiosInstance } = require('../ipc/network/axios-instance');
 const { safeParseJSON, safeStringifyJSON } = require('./common');
 const { preferencesUtil } = require('../store/preferences');
 const qs = require('qs');
+const { DEFAULT_OAUTH2_CALLBACK_URL } = require('./oauth2-loopback-server');
 
-const BRUNO_OAUTH2_CALLBACK_URL = 'https://oauth.usebruno.com/callback';
+const BRUNO_OAUTH2_CALLBACK_URL = DEFAULT_OAUTH2_CALLBACK_URL;
 
 const oauth2Store = new Oauth2Store();
 
