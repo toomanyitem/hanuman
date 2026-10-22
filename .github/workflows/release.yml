@@ -35,13 +35,16 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      # Targets and arches come from packages/bruno-electron/electron-builder-config.js.
+      # Targets and arches come from packages/bruno-electron/electron-builder-config.js,
+      # except macOS: building both arches in one run races on the pkg target's shared
+      # temp files (out/<appId>.pkg), so each arch gets its own job.
       - id: matrix
         env:
           PLATFORMS: ${{ inputs.platforms }}
         run: |
           targets='[
-            {"name":"macOS","os":"macos-latest","builder-args":"--mac"},
+            {"name":"macOS Intel","os":"macos-latest","builder-args":"--mac pkg dmg zip --x64"},
+            {"name":"macOS Apple Silicon","os":"macos-latest","builder-args":"--mac pkg dmg zip --arm64"},
             {"name":"Windows","os":"windows-latest","builder-args":"--win"},
             {"name":"Linux","os":"ubuntu-latest","builder-args":"--linux"}
           ]'
