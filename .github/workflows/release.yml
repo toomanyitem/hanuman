@@ -106,7 +106,7 @@ jobs:
         run: node scripts/build-electron.js
 
       - name: Upload installers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-${{ matrix.name }}
           if-no-files-found: error
@@ -154,7 +154,7 @@ jobs:
           ls -la *.snap
 
       - name: Upload snap
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-Snap
           if-no-files-found: error
@@ -187,7 +187,7 @@ jobs:
           cp dist/cli-bundle/*.tgz docker/cli/hanuman-cli.tgz
 
       - name: Upload CLI bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cli
           if-no-files-found: error
