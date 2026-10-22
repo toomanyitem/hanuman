@@ -61,25 +61,26 @@ npm run dev                 # รันแอปแบบ dev
 
 1. สร้าง tag ที่ commit ที่จะออก แล้ว push
    ```bash
-   git tag v0.1.1 && git push origin v0.1.1
+   git tag v0.1.2 && git push origin v0.1.2
    ```
 2. รัน workflow [`release.yml`](.github/workflows/release.yml) ที่แท็บ **Actions → Release → Run workflow** ใส่ tag แล้วเลือก `platforms`
    - `all`: macOS, Windows, Linux, snap, CLI tarball และ Docker image ของ CLI (`ghcr.io/toomanyitem/hanuman-cli`)
    - `macOS + Windows` หรือ `Windows`: เฉพาะที่เลือก
 
-   หรือสั่งจาก terminal: `gh workflow run release.yml -f tag=v0.1.1 -f platforms='macOS + Windows'`
+   หรือสั่งจาก terminal: `gh workflow run release.yml -f tag=v0.1.2 -f platforms='macOS + Windows'`
 3. workflow สร้าง release ใน repo นี้แล้ว publish ทันที (ถ้ามี release ของ tag นั้นอยู่แล้วจะอัปโหลดไฟล์เพิ่มเข้าไป) แอปที่ติดตั้งไว้จะเห็นเวอร์ชันใหม่จาก release นี้
+   - ถ้าอยากตรวจไฟล์ก่อนให้แอปเห็น ให้สร้าง draft ไว้ก่อนรัน workflow: `gh release create v0.1.2 --draft --verify-tag --title "Hanuman v0.1.2"` workflow จะอัปโหลดไฟล์เข้า draft นั้น ตรวจเสร็จแล้วค่อยกด **Publish**
 
 **build ในเครื่อง** ด้วย [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) (ต้อง `gh auth login` ไว้ก่อน)
 ```bash
 npm i --legacy-peer-deps && npm run setup              # ครั้งแรกครั้งเดียว
-scripts/hanuman/release-local.sh v0.1.1 mac --upload   # บน Mac: macOS (Intel + Apple Silicon)
+scripts/hanuman/release-local.sh v0.1.2 mac --upload   # บน Mac: macOS (Intel + Apple Silicon)
 ```
 บนเครื่อง Linux x86_64 build Linux + Windows + CLI ได้
 ```bash
 sudo dpkg --add-architecture i386 && sudo apt-get update
 sudo apt-get install rpm wine wine64 wine32:i386
-scripts/hanuman/release-local.sh v0.1.1 linux win cli --upload
+scripts/hanuman/release-local.sh v0.1.2 linux win cli --upload
 ```
 - `--upload` สร้าง release แบบ **draft** ใน repo นี้ถ้ายังไม่มี แล้วอัปโหลดไฟล์ (รันซ้ำได้ จะแทนที่ไฟล์เดิม) พอครบแล้วค่อยกด **Publish** บนหน้า GitHub แอปที่ติดตั้งไว้จะเห็นเวอร์ชันใหม่หลัง Publish เท่านั้น
 - ไฟล์ที่ build ได้อยู่ที่ `dist/release/<tag>/` แอป mac ที่ไม่มี Developer ID จะถูกเซ็นแบบ ad-hoc ให้อัตโนมัติ เพื่อให้เปิดบน Apple Silicon ได้
@@ -121,7 +122,7 @@ nvm use && npm i --legacy-peer-deps && npm run setup && npm run dev
 See [contributing.md](contributing.md), [CODING_STANDARDS.md](CODING_STANDARDS.md) and [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md).
 
 ### Releasing
-The usual path is GitHub Actions, which is free for this public repository: push a tag (`git tag v0.1.1 && git push origin v0.1.1`), then run the [`release.yml`](.github/workflows/release.yml) workflow from the Actions tab (or `gh workflow run release.yml -f tag=v0.1.1 -f platforms='macOS + Windows'`). `platforms` is `all` (macOS, Windows, Linux, the snap, the CLI tarball and the `ghcr.io/toomanyitem/hanuman-cli` images), `macOS + Windows`, or `Windows`. The workflow creates and publishes the release in this repository, or adds the files to it if it already exists; installed apps see the new version from there.
+The usual path is GitHub Actions, which is free for this public repository: push a tag (`git tag v0.1.2 && git push origin v0.1.2`), then run the [`release.yml`](.github/workflows/release.yml) workflow from the Actions tab (or `gh workflow run release.yml -f tag=v0.1.2 -f platforms='macOS + Windows'`). `platforms` is `all` (macOS, Windows, Linux, the snap, the CLI tarball and the `ghcr.io/toomanyitem/hanuman-cli` images), `macOS + Windows`, or `Windows`. The workflow creates and publishes the release in this repository, or adds the files to it if it already exists; installed apps see the new version from there. To check the files before apps see them, create a draft first (`gh release create v0.1.2 --draft --verify-tag --title "Hanuman v0.1.2"`); the workflow uploads into it, and you publish it when you are done.
 
 To build on your own machine, use [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) `<tag> <targets> --upload`: a Mac builds macOS Intel/Apple Silicon; an x86_64 Linux machine builds Linux x64/arm64, Windows (via wine) and the CLI. `--upload` creates a draft release in this repository; publish it once every platform is attached (installed apps only see published releases). On an Apple Silicon Mac, Windows cannot be built in Docker ([`release-docker.sh`](scripts/hanuman/release-docker.sh)): under Docker Desktop's Rosetta emulation wine cannot run the NSIS installer (`c0000018`), and under QEMU electron-builder's `app-builder` crashes (`fatal error: lfstack.push`).
 
