@@ -1,24 +1,37 @@
 const HELPER_USERNAME_ENV = 'HANUMAN_GIT_USERNAME';
 const HELPER_TOKEN_ENV = 'HANUMAN_GIT_TOKEN';
 
-const hostFromRemoteUrl = (url) => {
+const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+const parseRemoteUrl = (url) => {
   if (typeof url !== 'string') return null;
-  let parsed;
   try {
-    parsed = new URL(url.trim());
+    return new URL(url.trim());
   } catch (err) {
     return null;
   }
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+};
+
+// Tokens go only over https; plain http is accepted for loopback servers, where nothing crosses the network.
+const hostFromRemoteUrl = (url) => {
+  const parsed = parseRemoteUrl(url);
+  if (!parsed) return null;
+  const isLoopbackHttp = parsed.protocol === 'http:' && LOOPBACK_HOSTNAMES.has(parsed.hostname.toLowerCase());
+  if (parsed.protocol !== 'https:' && !isLoopbackHttp) return null;
   return parsed.host.toLowerCase();
 };
 
-// The empty helper resets every helper from the user's config for this one command, so a stale
-// keychain entry can't win over the token the user saved in the app. The token travels by env, not argv.
-const credentialConfig = () => [
-  'credential.helper=',
-  `credential.helper=!f() { echo "username=$${HELPER_USERNAME_ENV}"; echo "password=$${HELPER_TOKEN_ENV}"; }; f`
-];
+// The empty helper drops the user's helpers for this one command, so a stale keychain entry can't win over
+// the saved token. The new helper is keyed to the remote's scheme and host, so a redirect to another host
+// gets nothing. The token travels by env, never argv.
+const credentialConfig = (remoteUrl) => {
+  const { protocol, host } = parseRemoteUrl(remoteUrl);
+  return [
+    'credential.helper=',
+    `credential.${protocol}//${host}.helper=!f() { echo "username=$${HELPER_USERNAME_ENV}"; echo "password=$${HELPER_TOKEN_ENV}"; }; f`,
+    'submodule.recurse=false'
+  ];
+};
 
 const credentialEnv = ({ username, token }) => ({
   [HELPER_USERNAME_ENV]: username,

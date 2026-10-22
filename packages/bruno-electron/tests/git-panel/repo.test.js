@@ -9,7 +9,7 @@ jest.mock('../../src/store/git-credentials', () => ({
 }));
 
 const { resolveRepo, withRepoLock, getOperation, assertBranchName } = require('../../src/utils/git-panel/repo');
-const { scrubSecrets, hostFromRemoteUrl, redactUrl } = require('../../src/utils/git-panel/auth');
+const { scrubSecrets, hostFromRemoteUrl, redactUrl, credentialConfig } = require('../../src/utils/git-panel/auth');
 const { git, makeTmpDir, createRemoteAndClones, writeFile, commitAll } = require('./repos');
 
 describe('git-panel repo core', () => {
@@ -100,5 +100,14 @@ describe('git-panel auth helpers', () => {
     expect(hostFromRemoteUrl('https://h:8443/x')).toBe('h:8443');
     expect(hostFromRemoteUrl('git@github.com:a/b.git')).toBeNull();
     expect(hostFromRemoteUrl('/tmp/remote.git')).toBeNull();
+    expect(hostFromRemoteUrl('http://git.internal/a.git')).toBeNull();
+    expect(hostFromRemoteUrl('http://127.0.0.1:3000/a.git')).toBe('127.0.0.1:3000');
+  });
+
+  test('credentialConfig resets user helpers and keys ours to the remote host', () => {
+    const config = credentialConfig('https://GitLab.example.com:8443/team/repo.git');
+    expect(config[0]).toBe('credential.helper=');
+    expect(config[1]).toMatch(/^credential\.https:\/\/gitlab\.example\.com:8443\.helper=!f\(\)/);
+    expect(config.join(' ')).not.toMatch(/tok|password=[^$]/);
   });
 });

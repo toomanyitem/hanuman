@@ -14,23 +14,33 @@ const nonInteractiveEnv = () => ({
   GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -o BatchMode=yes'
 });
 
-// A fresh instance per call: .env() mutates the instance, and a token must never stick to a later command.
-const localGit = (repoRoot, env = {}) => simpleGit({ baseDir: repoRoot }).env({ ...nonInteractiveEnv(), ...env });
+// simple-git's default only rejects when git writes to stderr, so `commit` with nothing staged (exit 1, stdout
+// only) would look successful. Every non-zero exit is an error here, carrying whatever git printed.
+const rejectNonZeroExit = (error, result) => {
+  if (error) return error;
+  if (result.exitCode === 0) return undefined;
+  return Buffer.concat([...result.stdErr, ...result.stdOut]);
+};
 
-const networkGit = (repoRoot, remoteUrl) => {
+// A fresh instance per call: .env() mutates the instance, and a token must never stick to a later command.
+const localGit = (repoRoot, env = {}) =>
+  simpleGit({ baseDir: repoRoot, errors: rejectNonZeroExit }).env({ ...nonInteractiveEnv(), ...env });
+
+const networkGit = (repoRoot, remoteUrl, extraEnv = {}) => {
   const host = hostFromRemoteUrl(remoteUrl);
   const credential = host ? gitCredentialStore.get(host) : null;
   if (!credential) {
     return {
-      git: simpleGit({ baseDir: repoRoot, timeout: { block: NETWORK_TIMEOUT_MS } }).env(nonInteractiveEnv()),
+      git: simpleGit({ baseDir: repoRoot, errors: rejectNonZeroExit, timeout: { block: NETWORK_TIMEOUT_MS } }).env({ ...nonInteractiveEnv(), ...extraEnv }),
       secrets: []
     };
   }
   const git = simpleGit({
     baseDir: repoRoot,
-    config: credentialConfig(),
+    config: credentialConfig(remoteUrl),
+    errors: rejectNonZeroExit,
     timeout: { block: NETWORK_TIMEOUT_MS }
-  }).env({ ...nonInteractiveEnv(), ...credentialEnv(credential) });
+  }).env({ ...nonInteractiveEnv(), ...extraEnv, ...credentialEnv(credential) });
   return { git, secrets: [credential.token] };
 };
 
