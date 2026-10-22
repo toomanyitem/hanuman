@@ -1,6 +1,5 @@
 const { getWorkingFileContentForVisualDiff } = require('../git');
 const { localGit, requireRepo, withRepoLock, toGitError, assertPathsInScope } = require('./repo');
-const { hasHeadCommit } = require('./status');
 
 const runInScope = async (targetPath, paths, fn) => {
   const { repoRoot, scope } = await requireRepo(targetPath);
@@ -17,14 +16,9 @@ const runInScope = async (targetPath, paths, fn) => {
 const stageFiles = (targetPath, paths) =>
   runInScope(targetPath, paths, (git) => git.raw(['add', '-A', '--', ...paths]));
 
-// `reset HEAD` needs a commit, so before the first one the index entry is dropped instead.
+// `reset -- <paths>` without a commit argument also works on an unborn branch, before the first commit.
 const unstageFiles = (targetPath, paths) =>
-  runInScope(targetPath, paths, async (git) => {
-    if (await hasHeadCommit(git)) {
-      return git.raw(['reset', '-q', 'HEAD', '--', ...paths]);
-    }
-    return git.raw(['rm', '-r', '-q', '--cached', '--', ...paths]);
-  });
+  runInScope(targetPath, paths, (git) => git.raw(['reset', '-q', '--', ...paths]));
 
 const discardFiles = (targetPath, paths) =>
   runInScope(targetPath, paths, async (git) => {

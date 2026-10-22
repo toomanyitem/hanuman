@@ -32,10 +32,10 @@ const StashList = ({ stashes, hasChanges, busyAction, onStash, run }) => {
       {stashes.map((entry) => (
         <div key={entry.hash || entry.index} className="flex items-center gap-1 text-sm" data-testid="git-stash-item">
           <span className="flex-1 truncate" title={entry.message}>{entry.message}</span>
-          <ActionIcon size="sm" label="Apply (keep stash)" onClick={() => run('stash-apply', { index: entry.index }, { successMessage: 'Stash applied' })} data-testid="git-stash-apply">
+          <ActionIcon size="sm" label="Apply (keep stash)" onClick={() => run('stash-apply', { index: entry.index, hash: entry.hash }, { successMessage: 'Stash applied' })} data-testid="git-stash-apply">
             <IconCheck size={14} strokeWidth={1.5} />
           </ActionIcon>
-          <ActionIcon size="sm" label="Pop (apply and remove)" onClick={() => run('stash-pop', { index: entry.index }, { successMessage: 'Stash popped' })} data-testid="git-stash-pop">
+          <ActionIcon size="sm" label="Pop (apply and remove)" onClick={() => run('stash-pop', { index: entry.index, hash: entry.hash }, { successMessage: 'Stash popped' })} data-testid="git-stash-pop">
             <IconArrowUpRight size={14} strokeWidth={1.5} />
           </ActionIcon>
           <ActionIcon size="sm" label="Drop" onClick={() => setStashToDrop(entry)} data-testid="git-stash-drop">
@@ -50,9 +50,9 @@ const StashList = ({ stashes, hasChanges, busyAction, onStash, run }) => {
           testId="git-stash-drop-confirm"
           onCancel={() => setStashToDrop(null)}
           onConfirm={() => {
-            const { index } = stashToDrop;
+            const { index, hash } = stashToDrop;
             setStashToDrop(null);
-            run('stash-drop', { index });
+            run('stash-drop', { index, hash });
           }}
         >
           “{stashToDrop.message}” is deleted for good.

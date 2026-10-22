@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { IconTrash, IconCheck } from '@tabler/icons';
+import toast from 'react-hot-toast';
 import Modal from 'components/Modal';
 import Portal from 'components/Portal';
 import ActionIcon from 'ui/ActionIcon';
@@ -34,7 +35,11 @@ const BranchesModal = ({ targetPath, status, busyAction, run, confirmDrafts, onC
       if (!stashed.ok) return;
     }
     const result = await run(action, { name }, { successMessage: `Switched to ${name}` });
-    if (result.ok) onClose();
+    if (result.ok) {
+      onClose();
+    } else if (stashFirst) {
+      toast.error(`Your changes are saved in the stash "Before switching to ${name}". Pop it to get them back.`);
+    }
   };
 
   // Checkout rewrites files across the whole repo, so uncommitted work anywhere in it is offered a stash first.

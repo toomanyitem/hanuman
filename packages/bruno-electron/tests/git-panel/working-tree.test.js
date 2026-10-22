@@ -62,13 +62,14 @@ describe('git-panel status and changes', () => {
     expect(fileStatus(await getPanelStatus(collection), 'collection/ping.bru')).toMatchObject({ staged: 'M', unstaged: 'D' });
   });
 
-  test('unstage works before the first commit', async () => {
+  test('unstage works before the first commit, even after the file changed again', async () => {
     const repo = makeTmpDir('fresh');
     git(repo, ['init']);
     writeFile(repo, 'collection/a.bru', 'x');
     const target = path.join(repo, 'collection');
     await stageFiles(target, ['collection/a.bru']);
     expect(fileStatus(await getPanelStatus(target), 'collection/a.bru')).toMatchObject({ staged: 'A' });
+    writeFile(repo, 'collection/a.bru', 'edited after staging');
     await unstageFiles(target, ['collection/a.bru']);
     expect(fileStatus(await getPanelStatus(target), 'collection/a.bru')).toMatchObject({ staged: null, unstaged: '?' });
   });
@@ -82,6 +83,29 @@ describe('git-panel status and changes', () => {
     expect(fs.readFileSync(path.join(a, 'collection/ping.bru'), 'utf8')).toContain('https://example.com/ping');
     expect(fs.existsSync(path.join(a, 'collection/new.bru'))).toBe(false);
     expect(fs.readFileSync(path.join(a, 'README.md'), 'utf8')).toBe('changed outside\n');
+  });
+
+  test('paths are literal: a bracketed name never matches other files', async () => {
+    writeFile(a, 'collection/[v2] get.bru', 'v2');
+    writeFile(a, 'collection/v get.bru', 'v');
+    git(a, ['add', '-A']);
+    git(a, ['commit', '-m', 'two requests']);
+    writeFile(a, 'collection/[v2] get.bru', 'v2 changed');
+    writeFile(a, 'collection/v get.bru', 'KEEP ME');
+    writeFile(a, 'collection/[ab].bru', 'untracked bracket');
+    writeFile(a, 'collection/a.bru', 'untracked plain');
+
+    await discardFiles(collection, ['collection/[v2] get.bru', 'collection/[ab].bru']);
+    expect(fs.readFileSync(path.join(a, 'collection/[v2] get.bru'), 'utf8')).toBe('v2');
+    expect(fs.readFileSync(path.join(a, 'collection/v get.bru'), 'utf8')).toBe('KEEP ME');
+    expect(fs.existsSync(path.join(a, 'collection/[ab].bru'))).toBe(false);
+    expect(fs.readFileSync(path.join(a, 'collection/a.bru'), 'utf8')).toBe('untracked plain');
+  });
+
+  test('counts staged files outside the collection, which a commit would include', async () => {
+    writeFile(a, 'README.md', 'staged outside\n');
+    git(a, ['add', 'README.md']);
+    expect((await getPanelStatus(collection)).stagedOutsideScope).toBe(1);
   });
 
   test('refuses paths outside the collection', async () => {

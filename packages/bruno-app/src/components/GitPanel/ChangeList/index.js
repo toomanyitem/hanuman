@@ -91,8 +91,8 @@ const ChangeList = ({ groups, scope, selected, onSelect, onStage, onUnstage, onD
         scope={scope}
         selected={selected}
         onSelect={onSelect}
-        rowActions={[{ id: 'unstage', label: 'Unstage', Icon: IconMinus, onClick: (file) => onUnstage([file.path]) }]}
-        headerActions={[{ id: 'unstage-all', label: 'Unstage all', Icon: IconMinus, onClick: () => onUnstage(paths(staged)) }]}
+        rowActions={[{ id: 'unstage', label: 'Unstage', Icon: IconMinus, onClick: (file) => onUnstage(file.from ? [file.from, file.path] : [file.path]) }]}
+        headerActions={[{ id: 'unstage-all', label: 'Unstage all', Icon: IconMinus, onClick: () => onUnstage(staged.flatMap((file) => (file.from ? [file.from, file.path] : [file.path]))) }]}
       />
       <Section
         title="Changes"

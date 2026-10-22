@@ -4,14 +4,19 @@ const simpleGit = require('simple-git');
 const { gitCredentialStore } = require('../../store/git-credentials');
 const { hostFromRemoteUrl, credentialConfig, credentialEnv, scrubSecrets } = require('./auth');
 
-const NETWORK_TIMEOUT_MS = 60000;
+// git kills a command only after this long with no output; a large push over a slow link can be quiet for a while
+const NETWORK_TIMEOUT_MS = 5 * 60 * 1000;
 
-// Without a terminal git would wait forever for a username, a GCM dialog or an SSH host-key prompt.
+// - No terminal prompts: git would otherwise wait for a username or a GCM dialog. SSH is left to the user's own
+//   config (core.sshCommand, GIT_SSH); without a TTY it fails instead of prompting.
+// - Literal pathspecs: request files may be named "[v2] users.bru", and a glob pathspec would also touch "v users.bru".
+// - No optional locks: the status refresh must not take index.lock while a stage or commit is running.
 const nonInteractiveEnv = () => ({
   ...process.env,
   GIT_TERMINAL_PROMPT: '0',
   GCM_INTERACTIVE: 'never',
-  GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -o BatchMode=yes'
+  GIT_LITERAL_PATHSPECS: '1',
+  GIT_OPTIONAL_LOCKS: '0'
 });
 
 // simple-git's default only rejects when git writes to stderr, so `commit` with nothing staged (exit 1, stdout

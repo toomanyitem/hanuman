@@ -53,6 +53,22 @@ describe('git-panel fetch, pull and push', () => {
     expect(git(a, ['rev-parse', '--abbrev-ref', '@{u}'])).toBe('origin/feature/x');
   });
 
+  test('push goes to the tracked branch even when it has another name', async () => {
+    git(a, ['checkout', '-b', 'feature', '--track', 'origin/main']);
+    writeFile(a, 'collection/f.bru', 'f');
+    commitAll(a, 'on feature');
+    await push(a);
+    expect(git(repos.remote, ['log', '-1', '--format=%s', 'main'])).toBe('on feature');
+    expect(git(repos.remote, ['branch', '--list', 'feature'])).toBe('');
+  });
+
+  test('a new branch is pushed to the only remote when it is not called origin', async () => {
+    git(a, ['remote', 'rename', 'origin', 'upstream']);
+    git(a, ['checkout', '-b', 'topic']);
+    await push(a);
+    expect(git(a, ['rev-parse', '--abbrev-ref', '@{u}'])).toBe('upstream/topic');
+  });
+
   test('fails fast when the server asks for credentials, without echoing the token', async () => {
     const server = http.createServer((req, res) => {
       res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="git"' });

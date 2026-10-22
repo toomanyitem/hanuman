@@ -63,6 +63,8 @@ const getPanelStatus = async (targetPath) => {
       behind: scoped.behind,
       operation,
       repoHasTrackedChanges: whole.files.some((file) => file.index !== '?'),
+      // a commit takes the whole index, so files staged elsewhere in the repo go in too
+      stagedOutsideScope: whole.files.filter((file) => toStagedCode(file.index) && !scoped.files.some((f) => f.path === file.path)).length,
       files: scoped.files.map(toPanelFile),
       remotes: remotes.map(({ name, refs }) => ({ name, url: redactUrl(refs.fetch || refs.push) }))
     };

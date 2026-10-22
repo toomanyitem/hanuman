@@ -33,8 +33,8 @@ const Toolbar = ({ status, busyAction, onOpenBranches, onFetch, onPull, onPush, 
         placement="bottom-end"
         data-testid="git-pull-menu"
         items={[
-          { id: 'pull-merge', label: 'Pull (merge)', testId: 'git-pull-merge', onClick: () => onPull('merge') },
-          { id: 'pull-rebase', label: 'Pull (rebase)', testId: 'git-pull-rebase', onClick: () => onPull('rebase') }
+          { id: 'pull-merge', label: 'Pull (merge)', onClick: () => onPull('merge') },
+          { id: 'pull-rebase', label: 'Pull (rebase)', onClick: () => onPull('rebase') }
         ]}
       >
         <Button size="sm" variant="ghost" icon={<IconArrowDown size={14} />} disabled={!status.upstream} loading={busyAction === 'pull'} data-testid="git-pull">
@@ -51,8 +51,8 @@ const Toolbar = ({ status, busyAction, onOpenBranches, onFetch, onPull, onPush, 
         placement="bottom-end"
         data-testid="git-more-menu"
         items={[
-          { id: 'remotes', label: 'Remotes…', testId: 'git-open-remotes', onClick: onOpenRemotes },
-          { id: 'tokens', label: 'Access tokens…', testId: 'git-open-tokens', onClick: onOpenTokens }
+          { id: 'remotes', label: 'Remotes…', onClick: onOpenRemotes },
+          { id: 'tokens', label: 'Access tokens…', onClick: onOpenTokens }
         ]}
       >
         <ActionIcon label="More Git actions" data-testid="git-more">

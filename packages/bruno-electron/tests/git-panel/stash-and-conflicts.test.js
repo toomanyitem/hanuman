@@ -28,7 +28,7 @@ describe('git-panel stash', () => {
     expect(stashes).toHaveLength(1);
     expect(stashes[0].message).toContain('my work');
 
-    await stashPop(collection, { index: 0 });
+    await stashPop(collection, { index: 0, hash: stashes[0].hash });
     expect(read(a, 'collection/ping.bru')).toContain('https://example.com/stashed');
     expect(await listStashes(collection)).toEqual([]);
   });
@@ -46,8 +46,19 @@ describe('git-panel stash', () => {
 
   test('explains when there is nothing to stash and validates the index', async () => {
     await expect(stashPush(collection, {})).rejects.toThrow('There are no local changes to stash');
-    await expect(stashDrop(collection, { index: -1 })).rejects.toThrow('Stash index is not valid');
-    await expect(stashDrop(collection, { index: 0 })).rejects.toThrow();
+    await expect(stashDrop(collection, { index: -1, hash: 'abc1234' })).rejects.toThrow('Stash index is not valid');
+    await expect(stashDrop(collection, { index: 0, hash: 'abc1234' })).rejects.toThrow();
+  });
+
+  test('refuses to act on a stash whose index now points elsewhere', async () => {
+    writeFile(a, 'collection/ping.bru', PING_BRU('https://example.com/first'));
+    await stashPush(collection, { message: 'first' });
+    const [first] = await listStashes(collection);
+    writeFile(a, 'collection/ping.bru', PING_BRU('https://example.com/second'));
+    git(a, ['stash', 'push', '-m', 'second']);
+
+    await expect(stashDrop(collection, { index: 0, hash: first.hash })).rejects.toThrow('The stash list changed');
+    expect(await listStashes(collection)).toHaveLength(2);
   });
 });
 
@@ -116,7 +127,8 @@ describe('git-panel conflicts', () => {
     writeFile(b, 'collection/ping.bru', PING_BRU('https://example.com/committed'));
     commitAll(b, 'committed');
 
-    await expect(stashPop(collectionB, { index: 0 })).rejects.toThrow(/CONFLICT/);
+    const [stashed] = await listStashes(collectionB);
+    await expect(stashPop(collectionB, { index: 0, hash: stashed.hash })).rejects.toThrow(/CONFLICT/);
     const status = await getPanelStatus(collectionB);
     expect(status.operation).toBeNull();
     expect(status.files.find((file) => file.path === 'collection/ping.bru').conflicted).toBe(true);
@@ -144,6 +156,47 @@ describe('git-panel conflicts', () => {
     await expect(resolveConflict(collectionB, { path: 'collection/ping.bru', choice: 'content', content: 'x' }))
       .rejects.toThrow('symbolic link');
     expect(read(b, 'README.md')).toBe('outside the collection\n');
+
+    // a dangling link must not be followed to create its target either
+    const outside = path.join(repos.root, 'created-outside.txt');
+    fs.unlinkSync(path.join(b, 'collection/ping.bru'));
+    fs.symlinkSync(outside, path.join(b, 'collection/ping.bru'));
+    await expect(resolveConflict(collectionB, { path: 'collection/ping.bru', choice: 'content', content: 'x' }))
+      .rejects.toThrow('symbolic link');
+    expect(fs.existsSync(outside)).toBe(false);
+  });
+
+  test('current/incoming refuse a file that is not in conflict instead of deleting it', async () => {
+    await expect(resolveConflict(collectionB, { path: 'collection/ping.bru', choice: 'current' })).rejects.toThrow('Not a conflicted file');
+    expect(read(b, 'collection/ping.bru')).toContain('https://example.com/ping');
+    expect(git(b, ['status', '--porcelain'])).toBe('');
+  });
+
+  test('conflicts in files with non-ASCII names can be opened and resolved', async () => {
+    writeFile(a, 'collection/ทดสอบ.bru', PING_BRU('https://example.com/a'));
+    commitAll(a, 'thai a');
+    git(a, ['push']);
+    writeFile(b, 'collection/ทดสอบ.bru', PING_BRU('https://example.com/b'));
+    commitAll(b, 'thai b');
+    await expect(pull(collectionB, { mode: 'merge' })).rejects.toThrow();
+
+    const conflict = await getConflict(collectionB, { path: 'collection/ทดสอบ.bru' });
+    expect(conflict.incoming).toContain('https://example.com/a');
+    await resolveConflict(collectionB, { path: 'collection/ทดสอบ.bru', choice: 'incoming' });
+    await continueOperation(collectionB);
+    expect(read(b, 'collection/ทดสอบ.bru')).toContain('https://example.com/a');
+  });
+
+  test('a manual resolution keeps CRLF line endings', async () => {
+    writeFile(a, 'collection/ping.bru', PING_BRU('https://example.com/from-a').replace(/\n/g, '\r\n'));
+    commitAll(a, 'crlf a');
+    git(a, ['push']);
+    writeFile(b, 'collection/ping.bru', PING_BRU('https://example.com/from-b').replace(/\n/g, '\r\n'));
+    commitAll(b, 'crlf b');
+    await expect(pull(collectionB, { mode: 'merge' })).rejects.toThrow();
+
+    await resolveConflict(collectionB, { path: 'collection/ping.bru', choice: 'content', content: PING_BRU('https://example.com/merged') });
+    expect(read(b, 'collection/ping.bru')).toBe(PING_BRU('https://example.com/merged').replace(/\n/g, '\r\n'));
   });
 
   test('abort during a merge restores the previous HEAD', async () => {

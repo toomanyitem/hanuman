@@ -39,9 +39,20 @@ const listStashes = async (targetPath) => {
   }
 };
 
-const stashCommand = (command) => async (targetPath, { index } = {}) => {
+// Stash indexes shift when a stash is added or dropped elsewhere, so the hash the list showed must still match.
+const stashCommand = (command) => async (targetPath, { index, hash } = {}) => {
   assertStashIndex(index);
-  return runStash(targetPath, (git) => git.raw(['stash', command, `stash@{${index}}`]));
+  if (typeof hash !== 'string' || !/^[0-9a-f]{7,64}$/i.test(hash)) {
+    throw new Error('Stash hash is not valid');
+  }
+  return runStash(targetPath, async (git) => {
+    const ref = `stash@{${index}}`;
+    const current = (await git.raw(['rev-parse', ref])).trim();
+    if (!current.startsWith(hash) && !hash.startsWith(current)) {
+      throw new Error('The stash list changed. Refresh and try again.');
+    }
+    return git.raw(['stash', command, ref]);
+  });
 };
 
 module.exports = {

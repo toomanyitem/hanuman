@@ -26,15 +26,33 @@ const GitPanelContent = ({ targetPath }) => {
   const [openModal, setOpenModal] = useState(null);
   const [pendingConfirm, setPendingConfirm] = useState(null);
 
-  if (!status) {
-    return <div className="p-4 text-sm opacity-70">Reading the repository…</div>;
-  }
-
   const errorBanner = error && (
     <div data-testid="git-error">
       <ErrorBanner errors={[{ title: 'Git', message: error }]} onClose={clearError} />
     </div>
   );
+
+  if (!status) {
+    return error ? (
+      <>
+        {errorBanner}
+        <div className="p-4">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              clearError(); refresh();
+            }}
+            data-testid="git-retry"
+          >
+            Retry
+          </Button>
+        </div>
+      </>
+    ) : (
+      <div className="p-4 text-sm opacity-70">Reading the repository…</div>
+    );
+  }
 
   if (!status.isRepo) {
     return (
@@ -49,25 +67,34 @@ const GitPanelContent = ({ targetPath }) => {
   const selectedFile = selected && groups[selected.area].some((file) => file.path === selected.path) ? selected : null;
   const unsavedDrafts = countUnsavedDraftsInRepo(collections, getRepoRootInAppPaths(targetPath, status.scope));
 
+  // Resolves with the action's result, or { ok: false } when the user cancels.
+  const askToConfirm = ({ title, confirmText, message }, action) =>
+    new Promise((resolve) => {
+      setPendingConfirm({
+        title,
+        confirmText,
+        message,
+        onConfirm: () => resolve(action()),
+        onCancel: () => resolve({ ok: false })
+      });
+    });
+
   // Checkout, pull, stash and discard rewrite files on disk under any request still being edited in a tab.
-  const confirmDrafts = (actionLabel, action) => {
+  const confirmDrafts = async (actionLabel, action) => {
     if (unsavedDrafts === 0) return action();
-    setPendingConfirm({
+    return askToConfirm({
       title: 'Unsaved requests',
       confirmText: 'Continue',
-      message: `${unsavedDrafts} unsaved request change${unsavedDrafts === 1 ? '' : 's'} in this repository. ${actionLabel} changes files on disk, and the unsaved edits may no longer match them. Save first if you want them included.`,
-      action
-    });
+      message: `${unsavedDrafts} unsaved request change${unsavedDrafts === 1 ? '' : 's'} in this repository. ${actionLabel} changes files on disk, and the unsaved edits may no longer match them. Save first if you want them included.`
+    }, action);
   };
 
-  const discard = (paths) => {
-    setPendingConfirm({
+  const discard = (paths) =>
+    askToConfirm({
       title: 'Discard changes?',
       confirmText: 'Discard',
-      message: `Discard changes to ${paths.length} file${paths.length === 1 ? '' : 's'}? Untracked files are deleted. This cannot be undone.`,
-      action: () => confirmDrafts('Discarding', () => run('discard', { paths }))
-    });
-  };
+      message: `Discard changes to ${paths.length} file${paths.length === 1 ? '' : 's'}? Untracked files are deleted. This cannot be undone.`
+    }, () => confirmDrafts('Discarding', () => run('discard', { paths })));
 
   const commitDisabledReason = status.operation ? `Finish the ${status.operation} with the button above` : null;
 
@@ -90,6 +117,7 @@ const GitPanelContent = ({ targetPath }) => {
         <div className="git-sidebar flex flex-col overflow-auto">
           <CommitBox
             stagedCount={groups.staged.length}
+            stagedOutsideScope={status.stagedOutsideScope}
             disabledReason={commitDisabledReason}
             busy={busyAction === 'commit'}
             onCommit={(message) => run('commit', { message }, { successMessage: 'Committed' })}
@@ -109,7 +137,7 @@ const GitPanelContent = ({ targetPath }) => {
             stashes={stashes}
             hasChanges={status.files.length > 0}
             busyAction={busyAction}
-            onStash={(message) => new Promise((resolve) => confirmDrafts('Stashing', () => run('stash-push', { message }, { successMessage: 'Stashed' }).then(resolve)))}
+            onStash={(message) => confirmDrafts('Stashing', () => run('stash-push', { message }, { successMessage: 'Stashed' }))}
             run={run}
           />
         </div>
@@ -131,11 +159,13 @@ const GitPanelContent = ({ targetPath }) => {
         <ConfirmModal
           title={pendingConfirm.title}
           confirmText={pendingConfirm.confirmText}
-          onCancel={() => setPendingConfirm(null)}
-          onConfirm={() => {
-            const { action } = pendingConfirm;
+          onCancel={() => {
+            pendingConfirm.onCancel();
             setPendingConfirm(null);
-            action();
+          }}
+          onConfirm={() => {
+            pendingConfirm.onConfirm();
+            setPendingConfirm(null);
           }}
         >
           {pendingConfirm.message}

@@ -37,10 +37,23 @@ const getBranchUpstream = async (git) => {
   if (status.detached) {
     throw new Error('HEAD is detached. Check out a branch first.');
   }
-  const remote = status.tracking
-    ? (await git.raw(['config', '--get', `branch.${status.current}.remote`])).trim()
-    : null;
-  return { branch: status.current, remote };
+  if (!status.tracking) {
+    return { branch: status.current, remote: null, mergeRef: null };
+  }
+  const readConfig = async (key) => (await git.raw(['config', '--get', `branch.${status.current}.${key}`])).trim();
+  const remote = await readConfig('remote');
+  if (remote === '.') {
+    throw new Error(`${status.current} tracks a local branch. Set an upstream on a remote to pull or push.`);
+  }
+  return { branch: status.current, remote, mergeRef: await readConfig('merge') };
+};
+
+// With no upstream yet, push to origin, or to the only remote when there is just one.
+const pickRemoteForNewBranch = async (git) => {
+  const remotes = (await git.getRemotes()).map((r) => r.name);
+  if (remotes.includes('origin')) return 'origin';
+  if (remotes.length === 1) return remotes[0];
+  throw new Error(remotes.length ? `Choose a remote: this repository has ${remotes.join(', ')} and none is named origin.` : 'No remote is configured. Add one first.');
 };
 
 const pull = async (targetPath, { mode } = {}) => {
@@ -58,13 +71,16 @@ const pull = async (targetPath, { mode } = {}) => {
   });
 };
 
-const push = async (targetPath, { remote = 'origin' } = {}) => {
+// Push goes to the branch being tracked, which may be named differently from the local one.
+const push = async (targetPath) => {
   const { repoRoot } = await requireRepo(targetPath);
   return withRepoLock(repoRoot, async () => {
-    const upstream = await getBranchUpstream(localGit(repoRoot));
+    const git = localGit(repoRoot);
+    const upstream = await getBranchUpstream(git);
     if (upstream.remote) {
-      return runNetwork(repoRoot, upstream.remote, ['push', upstream.remote, 'HEAD']);
+      return runNetwork(repoRoot, upstream.remote, ['push', upstream.remote, `HEAD:${upstream.mergeRef}`]);
     }
+    const remote = await pickRemoteForNewBranch(git);
     return runNetwork(repoRoot, remote, ['push', '-u', remote, 'HEAD']);
   });
 };

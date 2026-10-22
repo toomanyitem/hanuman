@@ -1,4 +1,4 @@
-const { redactUrl } = require('./auth');
+const { redactUrl, restoreRedactedUserinfo } = require('./auth');
 const { localGit, resolveRepo, requireRepo, withRepoLock, toGitError, assertSafeArg } = require('./repo');
 
 const REMOTE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -38,7 +38,14 @@ const addRemote = async (targetPath, remote = {}) => {
 
 const setRemoteUrl = async (targetPath, remote = {}) => {
   assertRemote(remote);
-  return runRemoteCommand(targetPath, ['remote', 'set-url', remote.name, remote.url.trim()]);
+  const { repoRoot } = await requireRepo(targetPath);
+  let currentUrl;
+  try {
+    currentUrl = (await localGit(repoRoot).raw(['remote', 'get-url', remote.name])).trim();
+  } catch (error) {
+    throw toGitError(error);
+  }
+  return runRemoteCommand(targetPath, ['remote', 'set-url', remote.name, restoreRedactedUserinfo(remote.url.trim(), currentUrl)]);
 };
 
 const removeRemote = async (targetPath, remote = {}) => {

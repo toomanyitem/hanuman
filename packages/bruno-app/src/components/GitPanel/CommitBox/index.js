@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Button from 'ui/Button';
 import StyledWrapper from './StyledWrapper';
 
-const CommitBox = ({ stagedCount, disabledReason, busy, onCommit }) => {
+const CommitBox = ({ stagedCount, stagedOutsideScope = 0, disabledReason, busy, onCommit }) => {
   const [message, setMessage] = useState('');
   const canCommit = stagedCount > 0 && message.trim().length > 0 && !disabledReason;
 
@@ -31,6 +31,11 @@ const CommitBox = ({ stagedCount, disabledReason, busy, onCommit }) => {
         disabled={Boolean(disabledReason)}
         data-testid="git-commit-message"
       />
+      {stagedOutsideScope > 0 && (
+        <div className="text-xs" data-testid="git-staged-outside-scope">
+          {stagedOutsideScope} file{stagedOutsideScope === 1 ? ' is' : 's are'} also staged outside this collection and will be committed too.
+        </div>
+      )}
       <Button fullWidth size="sm" disabled={!canCommit} loading={busy} onClick={commit} data-testid="git-commit">
         {stagedCount > 0 ? `Commit ${stagedCount} staged file${stagedCount === 1 ? '' : 's'}` : 'Commit'}
       </Button>

@@ -9,7 +9,7 @@ jest.mock('../../src/store/git-credentials', () => ({
 }));
 
 const { resolveRepo, withRepoLock, getOperation, assertBranchName } = require('../../src/utils/git-panel/repo');
-const { scrubSecrets, hostFromRemoteUrl, redactUrl, credentialConfig } = require('../../src/utils/git-panel/auth');
+const { scrubSecrets, hostFromRemoteUrl, redactUrl, restoreRedactedUserinfo, credentialConfig } = require('../../src/utils/git-panel/auth');
 const { git, makeTmpDir, createRemoteAndClones, writeFile, commitAll } = require('./repos');
 
 describe('git-panel repo core', () => {
@@ -93,6 +93,15 @@ describe('git-panel auth helpers', () => {
   test('redactUrl keeps the username but hides the password', () => {
     expect(redactUrl('https://bob:s3cr3t@host/x.git')).toBe('https://bob:***@host/x.git');
     expect(redactUrl('git@github.com:a/b.git')).toBe('git@github.com:a/b.git');
+    expect(redactUrl('https://ghp_SECRET@github.com/o/r.git')).toBe('https://***@github.com/o/r.git');
+    expect(scrubSecrets('fatal: unable to access https://ghp_SECRET@github.com/o/r.git/')).not.toContain('ghp_SECRET');
+  });
+
+  test('an edited redacted URL keeps the stored credentials instead of saving ***', () => {
+    expect(restoreRedactedUserinfo('https://bob:***@h/new.git', 'https://bob:pw@h/old.git')).toBe('https://bob:pw@h/new.git');
+    expect(restoreRedactedUserinfo('https://***@h/new.git', 'https://TOKEN@h/old.git')).toBe('https://TOKEN@h/new.git');
+    expect(restoreRedactedUserinfo('https://h/new.git', 'https://bob:pw@h/old.git')).toBe('https://h/new.git');
+    expect(() => restoreRedactedUserinfo('https://***@h/new.git', 'https://h/old.git')).toThrow('hidden password');
   });
 
   test('hostFromRemoteUrl handles https hosts and ignores ssh remotes', () => {

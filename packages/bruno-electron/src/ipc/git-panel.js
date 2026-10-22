@@ -17,7 +17,7 @@ const repoHandlers = {
   'diff': ({ targetPath, path: filePath, area }) => gitPanel.getFileDiff(targetPath, { path: filePath, area }),
   'fetch': ({ targetPath, remote }) => gitPanel.fetchRemote(targetPath, { remote }),
   'pull': ({ targetPath, mode }) => gitPanel.pull(targetPath, { mode }),
-  'push': ({ targetPath, remote }) => gitPanel.push(targetPath, { remote }),
+  'push': ({ targetPath }) => gitPanel.push(targetPath),
   'branches': ({ targetPath }) => gitPanel.listBranches(targetPath),
   'create-branch': ({ targetPath, name }) => gitPanel.createBranch(targetPath, { name }),
   'checkout': ({ targetPath, name }) => gitPanel.checkoutBranch(targetPath, { name }),
@@ -29,9 +29,9 @@ const repoHandlers = {
   'init': ({ targetPath }) => gitPanel.initRepository(targetPath),
   'stash-push': ({ targetPath, message, repoWide }) => gitPanel.stashPush(targetPath, { message, repoWide: repoWide === true }),
   'stashes': ({ targetPath }) => gitPanel.listStashes(targetPath),
-  'stash-apply': ({ targetPath, index }) => gitPanel.stashApply(targetPath, { index }),
-  'stash-pop': ({ targetPath, index }) => gitPanel.stashPop(targetPath, { index }),
-  'stash-drop': ({ targetPath, index }) => gitPanel.stashDrop(targetPath, { index }),
+  'stash-apply': ({ targetPath, index, hash }) => gitPanel.stashApply(targetPath, { index, hash }),
+  'stash-pop': ({ targetPath, index, hash }) => gitPanel.stashPop(targetPath, { index, hash }),
+  'stash-drop': ({ targetPath, index, hash }) => gitPanel.stashDrop(targetPath, { index, hash }),
   'conflict': ({ targetPath, path: filePath }) => gitPanel.getConflict(targetPath, { path: filePath }),
   'resolve-conflict': ({ targetPath, path: filePath, choice, content }) => gitPanel.resolveConflict(targetPath, { path: filePath, choice, content }),
   'continue': ({ targetPath }) => gitPanel.continueOperation(targetPath),
@@ -71,7 +71,8 @@ const toRealPath = (p) => {
   }
 };
 
-// Git commands run only in folders the user already has open, so a stray renderer call can't drive git elsewhere.
+// Git commands run only in open collections and in workspaces the user has opened (the recent-workspaces list),
+// so a stray renderer call can't drive git in an arbitrary folder.
 const assertOpenTarget = (targetPath) => {
   const watchedCollections = Object.keys(collectionWatcher.watchers || {}).filter((p) => collectionWatcher.watchers[p]);
   const openRoots = [...watchedCollections, ...lastOpenedWorkspaces.getAll()];

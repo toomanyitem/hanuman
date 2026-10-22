@@ -38,9 +38,27 @@ const credentialEnv = ({ username, token }) => ({
   [HELPER_TOKEN_ENV]: token
 });
 
-const USERINFO_PATTERN = /\/\/([^/@:\s]+):[^/@\s]*@/g;
+// https://user:password@host keeps the user; https://TOKEN@host (GitHub's token-only form) hides it all.
+const HTTP_USERINFO_PATTERN = /(https?:\/\/)([^/@\s]+)@/gi;
 
-const redactUrl = (url) => (typeof url === 'string' ? url.replace(USERINFO_PATTERN, '//$1:***@') : url);
+const redactUrl = (url) => {
+  if (typeof url !== 'string') return url;
+  return url.replace(HTTP_USERINFO_PATTERN, (match, scheme, userinfo) => {
+    const separator = userinfo.indexOf(':');
+    return separator === -1 ? `${scheme}***@` : `${scheme}${userinfo.slice(0, separator)}:***@`;
+  });
+};
+
+// A URL edited in the app starts from its redacted form; put the stored credentials back instead of saving "***".
+const restoreRedactedUserinfo = (nextUrl, currentUrl) => {
+  const redacted = /^(https?:\/\/)[^/@\s]*\*\*\*[^/@\s]*@/i;
+  if (!redacted.test(nextUrl)) return nextUrl;
+  const current = /^https?:\/\/([^/@\s]+)@/i.exec(currentUrl || '');
+  if (!current) {
+    throw new Error('"***" stands for a hidden password. Type the real credentials or remove them from the URL.');
+  }
+  return nextUrl.replace(redacted, `$1${current[1]}@`);
+};
 
 const scrubSecrets = (text, secrets = []) => {
   let scrubbed = redactUrl(String(text ?? ''));
@@ -57,5 +75,6 @@ module.exports = {
   credentialConfig,
   credentialEnv,
   redactUrl,
+  restoreRedactedUserinfo,
   scrubSecrets
 };

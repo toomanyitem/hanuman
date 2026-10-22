@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { formatIpcError } from 'utils/common/error';
 
@@ -10,13 +10,20 @@ const useGitPanel = (targetPath) => {
   const [busyAction, setBusyAction] = useState(null);
   const [error, setError] = useState(null);
 
+  const latestRefresh = useRef(0);
+
+  // Refreshes overlap (window focus plus an action finishing); only the newest reply is applied.
   const refresh = useCallback(async () => {
     if (!targetPath) return;
+    const requestId = ++latestRefresh.current;
     try {
       const nextStatus = await invokeGit('status', { targetPath });
+      const nextStashes = nextStatus.isRepo && nextStatus.hasCommits ? await invokeGit('stashes', { targetPath }) : [];
+      if (requestId !== latestRefresh.current) return;
       setStatus(nextStatus);
-      setStashes(nextStatus.isRepo && nextStatus.hasCommits ? await invokeGit('stashes', { targetPath }) : []);
+      setStashes(nextStashes);
     } catch (err) {
+      if (requestId !== latestRefresh.current) return;
       setError(formatIpcError(err) || 'Could not read the Git status');
     }
   }, [targetPath]);
