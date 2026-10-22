@@ -47,7 +47,7 @@ npm run dev                      # เปิดแอปดูหน้าแร
 | `bruno-electron/src/utils/oauth2.js`, `ipc/network/authorize-user-in-system-browser.js` | callback เริ่มต้นเป็น loopback (`utils/oauth2-loopback-server.js` ไฟล์ใหม่) |
 | `bruno-electron/src/utils/deeplink.js`, `src/index.js` | protocol `hanuman://` |
 | `bruno-electron/src/utils/default-location.js` | โฟลเดอร์เริ่มต้น `~/Documents/hanuman` |
-| `bruno-electron/electron-builder-config.js`, `notarize.js`, `package.json` | appId, productName, ชื่อ package, protocol, ไม่เซ็นโค้ดถ้าไม่มี identity, `afterPack: 'adhoc-sign.js'` (ไฟล์ใหม่ เซ็น ad-hoc ให้แอป mac เมื่อไม่มี Developer ID) |
+| `bruno-electron/electron-builder-config.js`, `notarize.js`, `package.json` | appId, productName, ชื่อ package, protocol, ไม่เซ็นโค้ดถ้าไม่มี identity, `afterPack: 'adhoc-sign.js'` (ไฟล์ใหม่ เซ็น ad-hoc ให้แอป mac เมื่อไม่มี Developer ID), `publish: null` (ไม่สร้าง `app-update.yml`), `author` เป็น toomanyitem (ชื่อผู้พัฒนาใน .exe และ Copyright ของแอป mac) |
 | `bruno-cli/package.json` | เพิ่ม bin `hanuman` |
 | `bruno-electron/src/ipc/updates.js`, `utils/update-check.js` (ไฟล์ใหม่), `index.js`, `app/menu-template.js`, `store/preferences.js`, `bruno-app/.../Preferences/General`, `slices/app.js` | แจ้งเวอร์ชันใหม่จาก `toomanyitem/hanuman-releases` (preference `updates.checkAutomatically`) |
 | `scripts/build-electron.js` | รองรับ `ELECTRON_BUILDER_ARGS`, แก้บั๊ก `util.promisify(spawn)` ที่ทำให้สคริปต์จบด้วย exit 0 แม้ build ล้ม |

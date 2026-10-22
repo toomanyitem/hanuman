@@ -24,6 +24,8 @@ const config = {
   ],
   files: ['**/*'],
   afterPack: 'adhoc-sign.js',
+  // No auto-updater reads app-update.yml; installers are uploaded with gh by the release scripts.
+  publish: null,
   afterSign: 'notarize.js',
   mac: {
     artifactName: '${name}_${version}_${arch}_${os}.${ext}',

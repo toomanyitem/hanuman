@@ -165,6 +165,9 @@ jobs:
       - name: Setup Node Dependencies
         uses: ./.github/actions/common/setup-node-deps
 
+      - name: Set version from tag
+        run: node scripts/hanuman/set-version.js "${RELEASE_TAG}"
+
       - name: Bundle CLI
         run: |
           node scripts/bundle-cli.js
