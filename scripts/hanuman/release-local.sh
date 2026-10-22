@@ -123,7 +123,11 @@ build_desktop() {
 
 for target in "${TARGETS[@]}"; do
   case "$target" in
-    mac) build_desktop macOS darwin "--mac" ;;
+    # One arch per run: both arches at once race on the pkg target's shared temp files.
+    mac)
+      build_desktop "macOS Intel" darwin "--mac pkg dmg zip --x64"
+      build_desktop "macOS Apple Silicon" darwin "--mac pkg dmg zip --arm64"
+      ;;
     win) build_desktop Windows win32 "--win" ;;
     linux) build_desktop Linux linux "--linux" ;;
     snap)
