@@ -22,9 +22,11 @@ import {
   IconBook,
   IconServer,
   IconFileArrowRight,
-  IconAppWindow
+  IconAppWindow,
+  IconGitBranch
 } from '@tabler/icons';
 import OpenAPISyncIcon from 'components/Icons/OpenAPISync';
+import { getGitPanelTab } from 'components/GitPanel/utils';
 import { toggleCollection, collapseFullCollection, clearSidebarSelection } from 'providers/ReduxStore/slices/collections';
 import { mountCollection, moveCollectionAndPersist, handleMultipleCollectionItemsDrop, pasteItem, showInFolder, saveCollectionSecurityConfig } from 'providers/ReduxStore/slices/collections/actions';
 import { useDispatch, useSelector } from 'react-redux';
@@ -110,6 +112,11 @@ const CollectionRow = ({ collection, searchText, openBulkMenu, children, isColle
         type: 'openapi-sync'
       })
     );
+  };
+
+  const openGitPanelTab = () => {
+    ensureCollectionIsMounted();
+    dispatch(addTab(getGitPanelTab(collection.uid)));
   };
 
   const openMockServerDashboard = () => {
@@ -435,6 +442,13 @@ const CollectionRow = ({ collection, searchText, openBulkMenu, children, isColle
       leftSection: OpenAPISyncIcon,
       label: 'OpenAPI',
       onClick: openOpenAPISyncTab
+    },
+    {
+      id: 'git',
+      leftSection: IconGitBranch,
+      label: 'Git',
+      testId: 'collection-actions-git',
+      onClick: openGitPanelTab
     },
     ...(hasCopiedItems
       ? [

@@ -79,3 +79,6 @@ packages/bruno-converters/dist
 # local release builds (scripts/hanuman/release-local.sh, scripts/bundle-cli.js)
 /dist
 *.release-backup
+
+# oh-my-claudecode session state
+.omc/

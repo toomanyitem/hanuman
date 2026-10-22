@@ -19,7 +19,8 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 - OAuth2 ผ่าน system browser รับ callback ที่ `http://127.0.0.1:9876/callback` ในเครื่อง ไม่ผ่าน server ภายนอก
 - ติดตั้งคู่กับ Bruno ได้ (ใช้ `hanuman://` และโฟลเดอร์ข้อมูลแยกกัน)
 - แจ้งเมื่อมีเวอร์ชันใหม่: เมนู **Help → Check for Updates…** หรือ **Preferences → General → Updates** (เช็กอัตโนมัติตอนเปิดแอปต้องเปิดเอง ค่าเริ่มต้นปิด) แอปจะถาม GitHub ว่า release ล่าสุดคือเวอร์ชันอะไร ไม่ส่งข้อมูลอื่น
-- ฟีเจอร์ที่จะเพิ่มต่อไปดูได้ใน [เอกสารออกแบบ](docs/superpowers/specs/2026-10-20-hanuman-design.md): Git UI แบบเต็ม, data-driven testing, secret manager, Socket.IO/MQTT, load test, Mock Server แบบเต็ม, Monitor และ API Docs แบบออฟไลน์
+- **แผง Git ในแอป** ดูไฟล์ที่เปลี่ยน, diff แบบ visual, stage/commit, fetch/pull (merge หรือ rebase)/push, สลับและสร้าง branch, stash, แก้ merge conflict และเก็บ access token ต่อ host แบบเข้ารหัส
+- ฟีเจอร์ที่จะเพิ่มต่อไปดูได้ใน [เอกสารออกแบบ](docs/superpowers/specs/2026-10-20-hanuman-design.md): data-driven testing, secret manager, Socket.IO/MQTT, load test, Mock Server แบบเต็ม, Monitor และ API Docs แบบออฟไลน์
 
 ### ติดตั้ง
 ดาวน์โหลดจากหน้า [Releases](https://github.com/toomanyitem/hanuman/releases) ของ repo นี้
@@ -48,6 +49,8 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 2. commit และ push ไฟล์ `.yml`/`.bru` ขึ้น repo ของทีม (GitHub, GitLab, Bitbucket, Gitea หรือ server ภายในก็ได้)
 3. เพื่อนร่วมทีม clone repo แล้วเปิด collection ใน Hanuman
 4. **อย่า commit secret** ให้เก็บค่าลับไว้ในไฟล์ `.env` ของ collection (ใส่ไว้ใน `.gitignore`) หรือตั้งเป็น secret variable ใน environment
+
+ทำทุกขั้นในแอปได้: เมนู ⋯ ของ collection → **Git** (หรือเมนู ⋯ ของ Collections → **Git (workspace)**) แผงนี้เรียก `git` ที่ติดตั้งในเครื่อง จึงใช้ SSH agent และ credential helper เดิมของคุณได้ ถ้า repo private ใช้ HTTPS ให้เพิ่ม token ที่เมนู ⋯ ในแผง → **Access tokens…** ถ้า collection อยู่ในโฟลเดอร์ย่อยของ repo ใหญ่ แผงจะแสดงเฉพาะไฟล์ในโฟลเดอร์นั้น แต่ branch, pull และ push มีผลกับทั้ง repo
 
 ### พัฒนาต่อ
 ```bash
@@ -98,7 +101,8 @@ scripts/hanuman/release-local.sh v0.1.2 linux win cli --upload
 - System-browser OAuth2 uses a local loopback callback (`http://127.0.0.1:9876/callback`) instead of a vendor-hosted redirect.
 - Installs side by side with Bruno (its own `hanuman://` protocol and data folder).
 - Update notices: **Help → Check for Updates…** or **Preferences → General → Updates** (the check at startup is opt-in). The app only asks GitHub for the latest release of `toomanyitem/hanuman`.
-- Roadmap: see the [design spec](docs/superpowers/specs/2026-10-20-hanuman-design.md) — full Git UI, data-driven testing, secret managers, Socket.IO/MQTT, load testing, a full mock server, monitors, and offline API docs.
+- **A Git panel in the app:** changed files, visual diffs, stage and commit, fetch, pull (merge or rebase) and push, branches, stash, merge-conflict resolution, and encrypted per-host access tokens.
+- Roadmap: see the [design spec](docs/superpowers/specs/2026-10-20-hanuman-design.md) — data-driven testing, secret managers, Socket.IO/MQTT, load testing, a full mock server, monitors, and offline API docs.
 
 ### Install
 Download from this repository's [Releases](https://github.com/toomanyitem/hanuman/releases).
@@ -118,6 +122,8 @@ Builds are **unsigned**:
 
 ### Share collections through Git
 Keep the workspace or collection in a Git repository, commit the `.yml`/`.bru` files and push to any Git host. Teammates clone and open the collection. Keep secrets in the collection's git-ignored `.env` file or in secret environment variables — never commit them.
+
+All of this works inside the app: collection ⋯ menu → **Git** (or the Collections ⋯ menu → **Git (workspace)**). The panel runs your installed `git`, so your SSH agent and credential helper keep working; for private HTTPS repos add a token under the panel's ⋯ → **Access tokens…**. When a collection is a subfolder of a bigger repo, the panel lists only that folder's files, while branch, pull and push still act on the whole repo.
 
 ### Development
 ```bash

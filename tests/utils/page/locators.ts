@@ -24,6 +24,7 @@ import { buildManageWorkspaceLocators } from './workspace/manage-workspace';
 import { buildCreateWorkspaceModalLocators } from './workspace/create-workspace-modal';
 import { buildTitleBarLocators } from './title-bar';
 import { buildCloneGitRepositoryLocators } from './git/clone-git-repository';
+import { buildGitPanelLocators } from './git/git-panel';
 import { buildResponseExampleLocators } from './response-example';
 
 export type PresetRequestType = 'http' | 'graphql' | 'grpc' | 'ws';
@@ -61,6 +62,7 @@ export const buildCommonLocators = (page: Page) => ({
   manageWorkspace: buildManageWorkspaceLocators(page),
   createWorkspaceModal: buildCreateWorkspaceModalLocators(page),
   cloneGitRepository: buildCloneGitRepositoryLocators(page),
+  gitPanel: buildGitPanelLocators(page),
   migrateToYml: buildMigrateToYmlLocators(page),
   environment: buildEnvironmentLocators(page),
   variablesTab: buildVariablesTabLocators(page),
