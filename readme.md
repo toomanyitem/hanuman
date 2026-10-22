@@ -18,7 +18,7 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 - **ไม่มี telemetry และไม่มี analytics** แอปไม่ส่งข้อมูลออกนอกเครื่อง เว้นแต่คุณสั่ง (เช่น ส่ง request)
 - OAuth2 ผ่าน system browser รับ callback ที่ `http://127.0.0.1:9876/callback` ในเครื่อง ไม่ผ่าน server ภายนอก
 - ติดตั้งคู่กับ Bruno ได้ (ใช้ `hanuman://` และโฟลเดอร์ข้อมูลแยกกัน)
-- แจ้งเมื่อมีเวอร์ชันใหม่: เมนู **Help → Check for Updates…** หรือ **Preferences → General → Updates** (เช็กอัตโนมัติตอนเปิดแอปต้องเปิดเอง ค่าเริ่มต้นปิด) แอปจะถาม GitHub ว่า release ล่าสุดคือเวอร์ชันอะไร ไม่ส่งข้อมูลอื่น
+- แจ้งเมื่อมีเวอร์ชันใหม่: เมนู **Help → Check for Updates…** หรือ **Preferences → General → Updates** (เช็กอัตโนมัติตอนเปิดแอปต้องเปิดเอง ค่าเริ่มต้นปิด) แอปจะถาม GitHub ว่า release ล่าสุดคือเวอร์ชันอะไร ไม่ส่งข้อมูลอื่น บน macOS กด **Download and Install** ให้แอปดาวน์โหลด ตรวจ sha256 และติดตั้งเวอร์ชันใหม่ทับให้เอง (แอปเดิมย้ายไปถังขยะ) ไม่ต้องรัน `xattr` หรือกด Open Anyway อีก
 - **แผง Git ในแอป** ดูไฟล์ที่เปลี่ยน, diff แบบ visual, stage/commit, fetch/pull (merge หรือ rebase)/push, สลับและสร้าง branch, stash, แก้ merge conflict และเก็บ access token ต่อ host แบบเข้ารหัส
 - ฟีเจอร์ที่จะเพิ่มต่อไปดูได้ใน [เอกสารออกแบบ](docs/superpowers/specs/2026-10-20-hanuman-design.md): data-driven testing, secret manager, Socket.IO/MQTT, load test, Mock Server แบบเต็ม, Monitor และ API Docs แบบออฟไลน์
 
@@ -100,7 +100,7 @@ scripts/hanuman/release-local.sh v0.1.2 linux win cli --upload
 - **No telemetry or analytics.** Nothing leaves your machine unless you ask (for example, by sending a request).
 - System-browser OAuth2 uses a local loopback callback (`http://127.0.0.1:9876/callback`) instead of a vendor-hosted redirect.
 - Installs side by side with Bruno (its own `hanuman://` protocol and data folder).
-- Update notices: **Help → Check for Updates…** or **Preferences → General → Updates** (the check at startup is opt-in). The app only asks GitHub for the latest release of `toomanyitem/hanuman`.
+- Update notices: **Help → Check for Updates…** or **Preferences → General → Updates** (the check at startup is opt-in). The app only asks GitHub for the latest release of `toomanyitem/hanuman`. On macOS, **Download and Install** downloads the new version, checks its sha256 and installs it over the current one (the old app goes to the Trash), with no `xattr` or Open Anyway step.
 - **A Git panel in the app:** changed files, visual diffs, stage and commit, fetch, pull (merge or rebase) and push, branches, stash, merge-conflict resolution, and encrypted per-host access tokens.
 - Roadmap: see the [design spec](docs/superpowers/specs/2026-10-20-hanuman-design.md) — data-driven testing, secret managers, Socket.IO/MQTT, load testing, a full mock server, monitors, and offline API docs.
 

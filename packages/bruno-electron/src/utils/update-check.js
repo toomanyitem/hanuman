@@ -30,7 +30,7 @@ const isNewerVersion = (candidate, current) => {
  * Asks GitHub for the latest published release. The request carries no user or
  * machine data beyond what any HTTPS request does.
  *
- * @returns {Promise<{ status: 'available' | 'up-to-date' | 'no-releases', latestVersion?: string, releaseUrl: string }>}
+ * @returns {Promise<{ status: 'available' | 'up-to-date' | 'no-releases', latestVersion?: string, releaseUrl: string, release?: object }>}
  */
 const checkForUpdates = async ({ currentVersion, fetch = net.fetch } = {}) => {
   const response = await fetch(LATEST_RELEASE_API_URL, {
@@ -49,7 +49,7 @@ const checkForUpdates = async ({ currentVersion, fetch = net.fetch } = {}) => {
   const releaseUrl = release.html_url || RELEASES_PAGE_URL;
 
   if (isNewerVersion(latestVersion, currentVersion)) {
-    return { status: 'available', latestVersion, releaseUrl };
+    return { status: 'available', latestVersion, releaseUrl, release };
   }
   return { status: 'up-to-date', latestVersion, releaseUrl };
 };

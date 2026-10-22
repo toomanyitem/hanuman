@@ -1,0 +1,75 @@
+jest.mock('electron', () => ({
+  app: { getPath: jest.fn(), getVersion: () => '0.2.0', isPackaged: true, quit: jest.fn() },
+  dialog: { showMessageBox: jest.fn() },
+  ipcMain: { on: jest.fn(), handle: jest.fn() },
+  net: { fetch: jest.fn() },
+  shell: { openExternal: jest.fn() }
+}));
+jest.mock('../store/preferences', () => ({ preferencesUtil: {} }));
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { app, dialog, net, shell } = require('electron');
+const { installUpdate } = require('./updates');
+
+const mainWindow = { setProgressBar: jest.fn(), webContents: { send: jest.fn() } };
+const releaseUrl = 'https://github.com/toomanyitem/hanuman/releases/tag/v0.3.0';
+const release = {
+  tag_name: 'v0.3.0',
+  assets: [{
+    name: `hanuman_0.3.0_${process.arch}_mac.zip`,
+    browser_download_url: 'https://example.test/zip',
+    digest: `sha256:${'a'.repeat(64)}`
+  }]
+};
+
+describe('installUpdate', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    dialog.showMessageBox.mockResolvedValue({ response: 0 });
+  });
+
+  it('falls back to the release page when the app folder is not writable', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hanuman-updates-spec-'));
+    const exe = path.join(dir, 'Hanuman.app', 'Contents', 'MacOS', 'Hanuman');
+    fs.mkdirSync(path.dirname(exe), { recursive: true });
+    fs.chmodSync(dir, 0o555);
+    app.getPath.mockReturnValue(exe);
+
+    try {
+      await installUpdate(mainWindow, { release, releaseUrl });
+    } finally {
+      fs.chmodSync(dir, 0o755);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+
+    expect(dialog.showMessageBox.mock.calls[0][1].detail).toContain('can\'t write to');
+    expect(shell.openExternal).toHaveBeenCalledWith(releaseUrl);
+    expect(net.fetch).not.toHaveBeenCalled();
+    expect(app.quit).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the release page when the download does not match the digest', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hanuman-updates-spec-'));
+    const exe = path.join(dir, 'Hanuman.app', 'Contents', 'MacOS', 'Hanuman');
+    fs.mkdirSync(path.dirname(exe), { recursive: true });
+    app.getPath.mockReturnValue(exe);
+    net.fetch.mockResolvedValue({
+      ok: true,
+      headers: { get: () => '3' },
+      body: (async function* () {
+        yield Buffer.from('bad');
+      })()
+    });
+
+    await installUpdate(mainWindow, { release, releaseUrl });
+    fs.rmSync(dir, { recursive: true, force: true });
+
+    expect(dialog.showMessageBox.mock.calls[0][1].detail).toContain('doesn\'t match the release');
+    expect(shell.openExternal).toHaveBeenCalledWith(releaseUrl);
+    expect(app.quit).not.toHaveBeenCalled();
+    expect(mainWindow.webContents.send).toHaveBeenLastCalledWith('main:update-download-progress', { version: '0.3.0', done: true });
+  });
+});

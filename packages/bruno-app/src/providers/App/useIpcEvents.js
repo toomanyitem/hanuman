@@ -53,6 +53,8 @@ import { loadNotifications } from 'providers/ReduxStore/slices/notifications';
 import { updateSystemResources } from 'providers/ReduxStore/slices/performance';
 import { apiSpecAddFileEvent, apiSpecChangeFileEvent } from 'providers/ReduxStore/slices/apiSpec';
 
+const UPDATE_DOWNLOAD_TOAST_ID = 'update-download';
+
 const useIpcEvents = () => {
   const dispatch = useDispatch();
   const store = useStore();
@@ -424,7 +426,23 @@ const useIpcEvents = () => {
       dispatch(brunoConfigUpdateEvent(val));
     });
 
+    const removeUpdateDownloadProgressListener = ipcRenderer.on('main:update-download-progress', ({ version, percent, done }) => {
+      if (done) {
+        return toast.dismiss(UPDATE_DOWNLOAD_TOAST_ID);
+      }
+      toast.loading(
+        <span className="flex items-center gap-3" data-testid="update-download-toast">
+          {`Downloading Hanuman ${version}${percent === null ? '…' : ` ${percent}%`}`}
+          <button type="button" className="underline" onClick={() => ipcRenderer.invoke('renderer:cancel-update-download')}>
+            Cancel
+          </button>
+        </span>,
+        { id: UPDATE_DOWNLOAD_TOAST_ID }
+      );
+    });
+
     return () => {
+      removeUpdateDownloadProgressListener();
       removeCollectionTreeLoadedListener();
       removeCollectionLoadingStateV2Listener();
       removeBrunoConfigUpdateV2Listener();

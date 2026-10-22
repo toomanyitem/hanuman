@@ -49,7 +49,7 @@ npm run dev                      # เปิดแอปดูหน้าแร
 | `bruno-electron/src/utils/default-location.js` | โฟลเดอร์เริ่มต้น `~/Documents/hanuman` |
 | `bruno-electron/electron-builder-config.js`, `notarize.js`, `package.json` | appId, productName, ชื่อ package, protocol, ไม่เซ็นโค้ดถ้าไม่มี identity, `afterPack: 'adhoc-sign.js'` (ไฟล์ใหม่ เซ็น ad-hoc ให้แอป mac เมื่อไม่มี Developer ID), `publish: null` (ไม่สร้าง `app-update.yml`), `author` เป็น toomanyitem (ชื่อผู้พัฒนาใน .exe และ Copyright ของแอป mac) |
 | `bruno-cli/package.json` | เพิ่ม bin `hanuman` |
-| `bruno-electron/src/ipc/updates.js`, `utils/update-check.js` (ไฟล์ใหม่), `index.js`, `app/menu-template.js`, `store/preferences.js`, `bruno-app/.../Preferences/General`, `slices/app.js` | แจ้งเวอร์ชันใหม่จาก release ของ `toomanyitem/hanuman` (preference `updates.checkAutomatically`) |
+| `bruno-electron/src/ipc/updates.js`, `utils/update-check.js`, `utils/update-install.js` (ไฟล์ใหม่), `index.js`, `app/menu-template.js`, `store/preferences.js`, `bruno-app/.../Preferences/General`, `slices/app.js`, `bruno-app/src/providers/App/useIpcEvents.js` (toast `main:update-download-progress`) | แจ้งเวอร์ชันใหม่จาก release ของ `toomanyitem/hanuman` (preference `updates.checkAutomatically`) และบน macOS ดาวน์โหลด ตรวจ และติดตั้งทับในแอปได้ (`renderer:cancel-update-download`) |
 | `scripts/build-electron.js` | รองรับ `ELECTRON_BUILDER_ARGS`, แก้บั๊ก `util.promisify(spawn)` ที่ทำให้สคริปต์จบด้วย exit 0 แม้ build ล้ม |
 | `.github/workflows/*` | ปิด workflow ที่ใช้ self-hosted runner, เพิ่ม `release.yml` (กดรันเอง) และ fork-invariants ใน `lint-checks.yml` |
 | ไฟล์ใหม่: `scripts/hanuman/*`, `docker/cli/`, `docker/release/` | build/release ในเครื่อง, ตั้งเวอร์ชัน, ตรวจ invariant, Docker image ของ CLI |
