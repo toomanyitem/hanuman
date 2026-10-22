@@ -47,11 +47,12 @@ npm run dev                      # เปิดแอปดูหน้าแร
 | `bruno-electron/src/utils/oauth2.js`, `ipc/network/authorize-user-in-system-browser.js` | callback เริ่มต้นเป็น loopback (`utils/oauth2-loopback-server.js` ไฟล์ใหม่) |
 | `bruno-electron/src/utils/deeplink.js`, `src/index.js` | protocol `hanuman://` |
 | `bruno-electron/src/utils/default-location.js` | โฟลเดอร์เริ่มต้น `~/Documents/hanuman` |
-| `bruno-electron/electron-builder-config.js`, `notarize.js`, `package.json` | appId, productName, ชื่อ package, protocol, ไม่เซ็นโค้ดถ้าไม่มี identity, `afterPack: 'mac-sign.js'` (ไฟล์ใหม่ เซ็นแอป mac เมื่อไม่มี Developer ID: ด้วย certificate ใน `HANUMAN_CODESIGN_IDENTITY` ถ้ามี ไม่อย่างนั้น ad-hoc), `publish: null` (ไม่สร้าง `app-update.yml`), `author` เป็น toomanyitem (ชื่อผู้พัฒนาใน .exe และ Copyright ของแอป mac) |
+| `bruno-electron/electron-builder-config.js`, `notarize.js`, `package.json` | appId, productName, ชื่อ package, protocol, ไม่เซ็นโค้ดถ้าไม่มี identity, `afterPack: 'adhoc-sign.js'` (ไฟล์ใหม่ เซ็น ad-hoc ให้แอป mac เมื่อไม่มี Developer ID), `publish: null` (ไม่สร้าง `app-update.yml`), `author` เป็น toomanyitem (ชื่อผู้พัฒนาใน .exe และ Copyright ของแอป mac) |
 | `bruno-cli/package.json` | เพิ่ม bin `hanuman` |
 | `bruno-electron/src/ipc/updates.js`, `utils/update-check.js`, `utils/update-install.js` (ไฟล์ใหม่), `index.js`, `app/menu-template.js`, `store/preferences.js`, `bruno-app/.../Preferences/General`, `slices/app.js`, `bruno-app/src/providers/App/useIpcEvents.js` (toast `main:update-download-progress`) | แจ้งเวอร์ชันใหม่จาก release ของ `toomanyitem/hanuman` (preference `updates.checkAutomatically`) และบน macOS ดาวน์โหลด ตรวจ และติดตั้งทับในแอปได้ (`renderer:cancel-update-download`) |
 | `scripts/build-electron.js` | รองรับ `ELECTRON_BUILDER_ARGS`, แก้บั๊ก `util.promisify(spawn)` ที่ทำให้สคริปต์จบด้วย exit 0 แม้ build ล้ม |
 | `.github/workflows/*` | ปิด workflow ที่ใช้ self-hosted runner, เพิ่ม `release.yml` (กดรันเอง) และ fork-invariants ใน `lint-checks.yml` |
+| `release.yml` (job `sign-macos`, `package-macos`), `scripts/hanuman/sign-mac-app.sh` (ไฟล์ใหม่) | macOS: pack ด้วย `--mac dir` → เซ็นด้วย certificate self-signed ของ release (secret `MAC_SIGNING_P12_BASE64`/`MAC_SIGNING_P12_PASSWORD`, SHA-1 ปักไว้ใน `HANUMAN_MAC_CERT_SHA1`) ใน job ที่ไม่ลง npm → ทำ installer ด้วย `--prepackaged` |
 | ไฟล์ใหม่: `scripts/hanuman/*`, `docker/cli/`, `docker/release/` | build/release ในเครื่อง, ตั้งเวอร์ชัน, ตรวจ invariant, Docker image ของ CLI |
 
 ### แบรนด์

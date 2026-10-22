@@ -2,7 +2,9 @@ name: Release
 
 # Builds every platform Bruno ships — desktop apps for macOS, Windows and Linux
 # (x64 + arm64), a snap, the CLI tarball and multi-arch CLI Docker images — and
-# attaches them to a GitHub Release. Builds are unsigned (see readme.md).
+# attaches them to a GitHub Release. Nothing is signed with an Apple Developer ID or
+# a Windows certificate; macOS apps carry the repository's self-signed certificate
+# (see readme.md).
 #
 # Manual: run it from the Actions tab with an existing tag. The release is
 # created (or updated) in this repository, where the app checks for updates.
@@ -27,6 +29,9 @@ concurrency:
 
 env:
   RELEASE_TAG: ${{ github.event.inputs.tag }}
+  # SHA-1 of the self-signed certificate every macOS release is signed with
+  # (scripts/hanuman/sign-mac-app.sh). Installed apps only update to builds signed with it.
+  HANUMAN_MAC_CERT_SHA1: 8C314EF8D2A8FA040E310FE6CBF7D19B6796B13D
 
 jobs:
   plan:
@@ -34,17 +39,19 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
+      macos: ${{ steps.matrix.outputs.macos }}
     steps:
       # Targets and arches come from packages/bruno-electron/electron-builder-config.js,
       # except macOS: building both arches in one run races on the pkg target's shared
-      # temp files (out/<appId>.pkg), so each arch gets its own job.
+      # temp files (out/<appId>.pkg), so each arch gets its own job. macOS is only
+      # packed here; sign-macos and package-macos turn it into installers.
       - id: matrix
         env:
           PLATFORMS: ${{ inputs.platforms }}
         run: |
           targets='[
-            {"name":"macOS Intel","os":"macos-latest","builder-args":"--mac pkg dmg zip --x64"},
-            {"name":"macOS Apple Silicon","os":"macos-latest","builder-args":"--mac pkg dmg zip --arm64"},
+            {"name":"macOS Intel","os":"macos-latest","builder-args":"--mac dir --x64","mac-arch":"x64"},
+            {"name":"macOS Apple Silicon","os":"macos-latest","builder-args":"--mac dir --arm64","mac-arch":"arm64"},
             {"name":"Windows","os":"windows-latest","builder-args":"--win"},
             {"name":"Linux","os":"ubuntu-latest","builder-args":"--linux"}
           ]'
@@ -53,6 +60,7 @@ jobs:
             Windows) targets=$(echo "$targets" | jq -c 'map(select(.name == "Windows"))') ;;
           esac
           echo "matrix=$(echo "$targets" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
+          echo "macos=$(echo "$targets" | jq 'any(.[]; has("mac-arch"))')" >> "$GITHUB_OUTPUT"
 
   build-desktop:
     name: Build ${{ matrix.name }}
@@ -98,37 +106,6 @@ jobs:
         shell: bash
         run: npm run build:web
 
-      # Every macOS release is signed with the same self-signed certificate
-      # (packages/bruno-electron/mac-sign.js), so the keychain and the in-app
-      # updater recognise each new version as the same app.
-      - name: Import macOS signing certificate
-        if: runner.os == 'macOS'
-        shell: bash
-        env:
-          P12_BASE64: ${{ secrets.MAC_SIGNING_P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.MAC_SIGNING_P12_PASSWORD }}
-        run: |
-          if [ -z "$P12_BASE64" ] || [ -z "$P12_PASSWORD" ]; then
-            echo "::error::Set the MAC_SIGNING_P12_BASE64 and MAC_SIGNING_P12_PASSWORD secrets (see readme.md)"
-            exit 1
-          fi
-          keychain="$RUNNER_TEMP/signing.keychain-db"
-          keychain_password=$(openssl rand -hex 16)
-          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/signing.p12"
-          security create-keychain -p "$keychain_password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$keychain_password" "$keychain"
-          security import "$RUNNER_TEMP/signing.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
-          rm "$RUNNER_TEMP/signing.p12"
-          identity=$(security find-identity -p codesigning "$keychain" | awk '/^ *1\)/ { print $2 }')
-          if [ -z "$identity" ]; then
-            echo "::error::No code-signing identity in MAC_SIGNING_P12_BASE64"
-            exit 1
-          fi
-          echo "HANUMAN_CODESIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
-          echo "HANUMAN_CODESIGN_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
-
       - name: Build desktop app
         shell: bash
         env:
@@ -136,7 +113,24 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: node scripts/build-electron.js
 
+      # The packed app goes to sign-macos as a tarball: upload-artifact drops the
+      # symlinks inside Electron's frameworks.
+      - name: Archive macOS app
+        if: matrix.mac-arch
+        shell: bash
+        working-directory: packages/bruno-electron/out
+        run: tar -czf "$RUNNER_TEMP/macos-app-unsigned-${{ matrix.mac-arch }}.tgz" mac*/Hanuman.app
+
+      - name: Upload macOS app
+        if: matrix.mac-arch
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app-unsigned-${{ matrix.mac-arch }}
+          path: ${{ runner.temp }}/macos-app-unsigned-${{ matrix.mac-arch }}.tgz
+          if-no-files-found: error
+
       - name: Upload installers
+        if: ${{ !matrix.mac-arch }}
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.name }}
@@ -149,6 +143,118 @@ jobs:
             packages/bruno-electron/out/*.AppImage
             packages/bruno-electron/out/*.deb
             packages/bruno-electron/out/*.rpm
+
+  # Signs the packed macOS app on a fresh runner that installs no npm packages,
+  # so no dependency or build script ever runs where the signing key is available.
+  sign-macos:
+    name: Sign macOS ${{ matrix.mac-arch }}
+    needs: [plan, build-desktop]
+    if: ${{ !cancelled() && needs.plan.outputs.macos == 'true' }}
+    runs-on: macos-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        mac-arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          sparse-checkout: scripts/hanuman
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-app-unsigned-${{ matrix.mac-arch }}
+          path: ${{ runner.temp }}
+
+      - name: Sign
+        shell: bash
+        env:
+          MAC_SIGNING_P12_BASE64: ${{ secrets.MAC_SIGNING_P12_BASE64 }}
+          MAC_SIGNING_P12_PASSWORD: ${{ secrets.MAC_SIGNING_P12_PASSWORD }}
+          ARCH: ${{ matrix.mac-arch }}
+        run: |
+          if [ -z "$MAC_SIGNING_P12_BASE64" ] || [ -z "$MAC_SIGNING_P12_PASSWORD" ]; then
+            echo "::error::Set the MAC_SIGNING_P12_BASE64 and MAC_SIGNING_P12_PASSWORD secrets (see readme.md)"
+            exit 1
+          fi
+          mkdir "$RUNNER_TEMP/app"
+          tar -xzf "$RUNNER_TEMP/macos-app-unsigned-$ARCH.tgz" -C "$RUNNER_TEMP/app"
+          scripts/hanuman/sign-mac-app.sh "$RUNNER_TEMP"/app/mac*/Hanuman.app
+          cd "$RUNNER_TEMP/app" && tar -czf "$RUNNER_TEMP/macos-app-signed-$ARCH.tgz" mac*/Hanuman.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-app-signed-${{ matrix.mac-arch }}
+          path: ${{ runner.temp }}/macos-app-signed-${{ matrix.mac-arch }}.tgz
+          if-no-files-found: error
+
+  package-macos:
+    name: Build macOS ${{ matrix.mac-arch }} installers
+    needs: [plan, sign-macos]
+    if: ${{ !cancelled() && needs.plan.outputs.macos == 'true' }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: 'macOS Intel', mac-arch: x64 }
+          - { name: 'macOS Apple Silicon', mac-arch: arm64 }
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Setup Node Dependencies
+        uses: ./.github/actions/common/setup-node-deps
+        with:
+          skip-build: 'true'
+
+      # Installer file names take the version from package.json.
+      - name: Set version from tag
+        shell: bash
+        run: node scripts/hanuman/set-version.js "${RELEASE_TAG}"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-app-signed-${{ matrix.mac-arch }}
+          path: ${{ runner.temp }}
+
+      - name: Build installers
+        shell: bash
+        env:
+          ARCH: ${{ matrix.mac-arch }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          mkdir -p packages/bruno-electron/out
+          tar -xzf "$RUNNER_TEMP/macos-app-signed-$ARCH.tgz" -C packages/bruno-electron/out
+          app=$(echo "$PWD"/packages/bruno-electron/out/mac*/Hanuman.app)
+          npm exec --workspace=packages/bruno-electron -- electron-builder --mac pkg dmg zip "--$ARCH" \
+            --prepackaged "$app" --config electron-builder-config.js --publish never
+
+      # Fails if packaging re-signed the app instead of keeping the release certificate.
+      - name: Check the installers' signature
+        shell: bash
+        run: |
+          mkdir "$RUNNER_TEMP/check"
+          ditto -x -k packages/bruno-electron/out/*_mac.zip "$RUNNER_TEMP/check"
+          codesign --verify --deep --strict "$RUNNER_TEMP/check/Hanuman.app"
+          expected=$(echo "$HANUMAN_MAC_CERT_SHA1" | tr 'A-F' 'a-f')
+          codesign -d -r- "$RUNNER_TEMP/check/Hanuman.app" 2>/dev/null | grep -F "certificate leaf = H\"$expected\""
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            packages/bruno-electron/out/*.dmg
+            packages/bruno-electron/out/*.pkg
+            packages/bruno-electron/out/*.zip
 
   build-snap:
     name: Build Snap
@@ -267,8 +373,8 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [build-desktop, build-snap, build-cli]
-    if: ${{ !cancelled() && needs.build-desktop.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.build-cli.result) }}
+    needs: [build-desktop, package-macos, build-snap, build-cli]
+    if: ${{ !cancelled() && needs.build-desktop.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.package-macos.result) && contains(fromJSON('["success", "skipped"]'), needs.build-cli.result) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -283,10 +389,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          rm -f release-files/macos-app-*.tgz
           ls -la release-files
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" release-files/* --clobber
           else
             gh release create "$RELEASE_TAG" release-files/* --title "Hanuman $RELEASE_TAG" \
-              --notes "Built from tag $RELEASE_TAG of ${{ github.repository }}. The builds are unsigned (see the readme)."
+              --notes "Built from tag $RELEASE_TAG of ${{ github.repository }}. The builds are not signed with an Apple Developer ID (see the readme)."
           fi
