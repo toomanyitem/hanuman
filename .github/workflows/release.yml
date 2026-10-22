@@ -13,6 +13,10 @@ on:
       tag:
         description: 'Existing tag to (re)build, e.g. v0.1.0'
         required: true
+      windows_only:
+        description: 'Build only the Windows installer (no release is published; download it from the run artifacts)'
+        type: boolean
+        default: false
 
 concurrency:
   group: release-${{ github.event.inputs.tag }}
@@ -34,6 +38,7 @@ jobs:
       - id: matrix
         env:
           SKIP_MAC: ${{ vars.HANUMAN_SKIP_MAC_BUILD }}
+          WINDOWS_ONLY: ${{ inputs.windows_only }}
         run: |
           targets='[
             {"name":"macOS","os":"macos-latest","builder-args":"--mac"},
@@ -42,6 +47,9 @@ jobs:
           ]'
           if [ "$SKIP_MAC" = "true" ]; then
             targets=$(echo "$targets" | jq -c 'map(select(.name != "macOS"))')
+          fi
+          if [ "$WINDOWS_ONLY" = "true" ]; then
+            targets=$(echo "$targets" | jq -c 'map(select(.name == "Windows"))')
           fi
           echo "matrix=$(echo "$targets" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
 
@@ -113,6 +121,7 @@ jobs:
   build-snap:
     name: Build Snap
     # electron-builder 24 only emits core20/core22 snaps, so build on 22.04.
+    if: ${{ !inputs.windows_only }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     # A snap problem should not hold back the other installers.
@@ -152,6 +161,8 @@ jobs:
 
   build-cli:
     name: Build CLI bundle and Docker images
+    # Skipping this also skips the release job, which needs it to succeed.
+    if: ${{ !inputs.windows_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
