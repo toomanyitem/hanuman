@@ -1,6 +1,9 @@
 const fs = require('fs');
+// Electron's fs treats the app.asar inside a downloaded Hanuman.app as a folder and can't delete it.
+const originalFs = require('original-fs');
 const os = require('os');
 const path = require('path');
+const { omit } = require('lodash');
 const { app, dialog, ipcMain, net, shell } = require('electron');
 const { checkForUpdates } = require('../utils/update-check');
 const { selectMacAsset, resolveInstallTarget, downloadAsset, extractAndVerify, startSwapHelper } = require('../utils/update-install');
@@ -66,13 +69,17 @@ const installUpdate = async (mainWindow, { release, releaseUrl }) => {
   };
 
   let workDir;
-  const removeWorkDir = () => workDir && fs.promises.rm(workDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  // A cleanup failure must not hide why the install stopped, so it is only logged.
+  const removeWorkDir = () => workDir && originalFs.promises.rm(workDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 })
+    .catch((error) => console.error('Couldn\'t remove the update work dir:', error));
   try {
     reportProgress(0);
     workDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'hanuman-update-'));
     const zipPath = path.join(workDir, asset.name);
     await downloadAsset({ url: asset.url, sha256: asset.sha256, destPath: zipPath, fetch: net.fetch, signal: activeDownload.signal, onProgress: reportProgress });
-    const newAppPath = await extractAndVerify({ zipPath, workDir, expectedVersion: asset.version, currentVersion: app.getVersion() });
+    const newAppPath = await extractAndVerify({ zipPath, workDir, expectedVersion: asset.version, currentVersion: app.getVersion(), runningAppPath: bundlePath });
+    // The toast offers Cancel until here, including while the download is unzipped and checked.
+    activeDownload.signal.throwIfAborted();
     endProgress();
 
     const { response } = await dialog.showMessageBox(mainWindow, {
@@ -161,8 +168,8 @@ const checkForUpdatesAndNotify = async (mainWindow, { quiet = false } = {}) => {
       detail: `You have the latest version (${app.getVersion()}).`
     });
   }
-  const { release, ...summary } = result;
-  return summary;
+  // The raw release is only needed in this process.
+  return omit(result, 'release');
 };
 
 const registerUpdatesIpc = (mainWindow) => {
@@ -180,3 +187,4 @@ const registerUpdatesIpc = (mainWindow) => {
 module.exports = registerUpdatesIpc;
 module.exports.checkForUpdatesAndNotify = checkForUpdatesAndNotify;
 module.exports.installUpdate = installUpdate;
+module.exports.cancelUpdateDownload = cancelUpdateDownload;

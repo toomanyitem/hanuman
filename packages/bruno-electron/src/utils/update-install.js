@@ -13,8 +13,8 @@ const BUNDLE_ID = 'com.toomanyitem.hanuman';
 /*
  * macOS only. Downloads the release zip with net.fetch and writes it with fs, so
  * the files never get the com.apple.quarantine attribute that browser and
- * webContents downloads get, and the ad-hoc signed app opens without a
- * Gatekeeper prompt. electron-updater would need a Developer ID signature.
+ * webContents downloads get, and an app without a Developer ID signature opens
+ * without a Gatekeeper prompt. electron-updater would need a Developer ID signature.
  */
 
 const versionFromTag = (tag) => String(tag || '').replace(/^v/, '');
@@ -79,6 +79,8 @@ const downloadAsset = async ({ url, sha256, destPath, fetch, signal, onProgress 
   let received = 0;
   try {
     for await (const chunk of response.body) {
+      // net.fetch stops honouring the signal once headers arrive, so check it per chunk.
+      signal.throwIfAborted();
       hash.update(chunk);
       await file.write(chunk);
       received += chunk.length;
@@ -112,10 +114,38 @@ const verifyBundleInfo = ({ bundleId, version }, { expectedVersion, currentVersi
 };
 
 /**
- * Unzips the download next to it and checks it is a newer, intact Hanuman.
- * Returns the path of the extracted .app.
+ * The designated requirement from `codesign -d -r-`. Ad-hoc builds only have an
+ * implicit `# designated => cdhash …`, which changes every build, so they get null.
  */
-const extractAndVerify = async ({ zipPath, workDir, expectedVersion, currentVersion }) => {
+const parseDesignatedRequirement = (codesignOutput) => {
+  const match = /^designated => (.+)$/m.exec(codesignOutput);
+  return match ? match[1] : null;
+};
+
+/**
+ * Checks the new app's signature and, when this copy is signed with a certificate,
+ * that the new app satisfies this copy's designated requirement: the same check the
+ * keychain uses, so an update that passes keeps access to "Hanuman Safe Storage".
+ * An ad-hoc signed copy (0.2.0 and earlier) has no stable requirement to compare.
+ */
+const verifySignature = async ({ appPath, runningAppPath }) => {
+  const { stdout } = await execFileAsync('codesign', ['-d', '-r-', runningAppPath]);
+  const requirement = parseDesignatedRequirement(stdout);
+  const args = ['--verify', '--deep', '--strict', ...(requirement ? ['-R', `=${requirement}`] : []), appPath];
+  try {
+    await execFileAsync('codesign', args);
+  } catch {
+    throw new Error(requirement
+      ? 'The download is not signed with the same certificate as this copy of Hanuman.'
+      : 'The download\'s code signature is broken, so macOS would report the app as damaged.');
+  }
+};
+
+/**
+ * Unzips the download next to it and checks it is a newer, intact Hanuman signed
+ * like the running copy. Returns the path of the extracted .app.
+ */
+const extractAndVerify = async ({ zipPath, workDir, expectedVersion, currentVersion, runningAppPath }) => {
   const outDir = path.join(workDir, 'extracted');
   await execFileAsync('ditto', ['-x', '-k', '--noqtn', zipPath, outDir]);
   const entries = await fs.promises.readdir(outDir);
@@ -124,15 +154,15 @@ const extractAndVerify = async ({ zipPath, workDir, expectedVersion, currentVers
   }
   const appPath = path.join(outDir, entries[0]);
   verifyBundleInfo(await readBundleInfo(appPath), { expectedVersion, currentVersion });
-  // A broken ad-hoc signature would make macOS report the app as damaged after the swap.
-  await execFileAsync('codesign', ['--verify', '--deep', '--strict', appPath]);
+  await verifySignature({ appPath, runningAppPath });
   return appPath;
 };
 
 /*
  * Runs after Hanuman quits: waits for the pid to exit, moves the old app to the
  * Trash, moves the new one in (putting the old one back if that fails) and opens
- * it. Gives up after 10 minutes, e.g. when the user cancelled the quit.
+ * it, then deletes its work dir. Gives up after 10 minutes, e.g. when the user
+ * cancelled the quit.
  */
 const HELPER_SCRIPT = `#!/bin/sh
 pid="$1"; old="$2"; new="$3"
@@ -156,6 +186,9 @@ if ! mv "$new" "$old"; then
 fi
 echo "Installed $old"
 "\${HANUMAN_UPDATE_OPEN:-open}" "$old"
+# The work dir holds the downloaded zip and this script.
+workdir=$(dirname "$0")
+case "$(basename "$workdir")" in hanuman-update-*) rm -rf "$workdir" ;; esac
 `;
 
 /**
@@ -181,6 +214,8 @@ module.exports = {
   resolveInstallTarget,
   downloadAsset,
   verifyBundleInfo,
+  parseDesignatedRequirement,
+  verifySignature,
   extractAndVerify,
   startSwapHelper
 };

@@ -8,14 +8,16 @@ const {
   selectMacAsset,
   resolveInstallTarget,
   downloadAsset,
-  verifyBundleInfo
+  verifyBundleInfo,
+  parseDesignatedRequirement,
+  verifySignature
 } = require('./update-install');
 
 const SHA = 'a'.repeat(64);
 const asset = (name, extra = {}) => ({ name, browser_download_url: `https://example.test/${name}`, size: 10, digest: `sha256:${SHA}`, ...extra });
 const release = (assets) => ({ tag_name: 'v0.3.0', assets });
 
-const makeTempDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'hanuman-update-spec-'));
+const makeTempDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'hanuman-install-spec-'));
 
 describe('selectMacAsset', () => {
   const assets = [
@@ -63,7 +65,7 @@ describe('downloadAsset', () => {
     const destPath = path.join(dir, 'a.zip');
     const onProgress = jest.fn();
 
-    await downloadAsset({ url: 'u', sha256, destPath, fetch: fetchReturning([body.subarray(0, 5), body.subarray(5)]), onProgress });
+    await downloadAsset({ url: 'u', sha256, destPath, fetch: fetchReturning([body.subarray(0, 5), body.subarray(5)]), signal: new AbortController().signal, onProgress });
 
     expect(fs.readFileSync(destPath)).toEqual(body);
     expect(onProgress).toHaveBeenLastCalledWith(1);
@@ -73,14 +75,25 @@ describe('downloadAsset', () => {
   it('rejects when the digest does not match', async () => {
     const dir = makeTempDir();
 
-    await expect(downloadAsset({ url: 'u', sha256: SHA, destPath: path.join(dir, 'a.zip'), fetch: fetchReturning([body]) }))
+    await expect(downloadAsset({ url: 'u', sha256: SHA, destPath: path.join(dir, 'a.zip'), fetch: fetchReturning([body]), signal: new AbortController().signal }))
       .rejects.toThrow('doesn\'t match the release');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('stops when cancelled mid-download, even if the body keeps streaming', async () => {
+    const dir = makeTempDir();
+    const controller = new AbortController();
+    const onProgress = jest.fn(() => controller.abort());
+
+    await expect(downloadAsset({ url: 'u', sha256, destPath: path.join(dir, 'a.zip'), fetch: fetchReturning([body.subarray(0, 5), body.subarray(5)]), signal: controller.signal, onProgress }))
+      .rejects.toMatchObject({ name: 'AbortError' });
+    expect(onProgress).toHaveBeenCalledTimes(1);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
   it('rejects an HTTP error', async () => {
     const fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 });
-    await expect(downloadAsset({ url: 'u', sha256, destPath: 'unused', fetch })).rejects.toThrow('HTTP 404');
+    await expect(downloadAsset({ url: 'u', sha256, destPath: 'unused', fetch, signal: new AbortController().signal })).rejects.toThrow('HTTP 404');
   });
 });
 
@@ -155,7 +168,41 @@ describe('resolveInstallTarget', () => {
   });
 });
 
+describe('parseDesignatedRequirement', () => {
+  it('returns the requirement of a certificate-signed app', () => {
+    const output = 'designated => identifier "com.toomanyitem.hanuman" and certificate leaf = H"8c314ef8d2a8fa040e310fe6cbf7d19b6796b13d"\n';
+    expect(parseDesignatedRequirement(output)).toBe('identifier "com.toomanyitem.hanuman" and certificate leaf = H"8c314ef8d2a8fa040e310fe6cbf7d19b6796b13d"');
+  });
+
+  it('returns null for an ad-hoc app, whose implicit cdhash requirement changes every build', () => {
+    expect(parseDesignatedRequirement('# designated => cdhash H"8d0b0230aff943a825efae53b03b3c2624e6e3ae"\n')).toBeNull();
+  });
+});
+
 const describeOnMac = process.platform === 'darwin' ? describe : describe.skip;
+
+describeOnMac('verifySignature', () => {
+  const signedCopy = (dir, name) => {
+    const binary = path.join(dir, name);
+    fs.copyFileSync('/usr/bin/true', binary);
+    spawnSync('codesign', ['--force', '--sign', '-', '--identifier', 'com.toomanyitem.hanuman', binary]);
+    return binary;
+  };
+
+  it('accepts a validly signed download when the running copy is ad-hoc signed', async () => {
+    const dir = makeTempDir();
+    await expect(verifySignature({ appPath: signedCopy(dir, 'new'), runningAppPath: signedCopy(dir, 'running') })).resolves.toBeUndefined();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('refuses a download whose signature is broken', async () => {
+    const dir = makeTempDir();
+    const broken = signedCopy(dir, 'new');
+    fs.appendFileSync(broken, 'tampered');
+    await expect(verifySignature({ appPath: broken, runningAppPath: signedCopy(dir, 'running') })).rejects.toThrow('signature is broken');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
 
 describeOnMac('swap helper script', () => {
   const setup = () => {
@@ -163,12 +210,13 @@ describeOnMac('swap helper script', () => {
     const home = path.join(dir, 'home');
     fs.mkdirSync(path.join(home, '.Trash'), { recursive: true });
     const oldApp = path.join(dir, 'Applications', 'Hanuman.app');
-    const newApp = path.join(dir, 'work', 'Hanuman.app');
+    const workDir = path.join(dir, 'hanuman-update-work');
+    const newApp = path.join(workDir, 'extracted', 'Hanuman.app');
     fs.mkdirSync(oldApp, { recursive: true });
     fs.mkdirSync(newApp, { recursive: true });
     fs.writeFileSync(path.join(oldApp, 'version'), 'old');
     fs.writeFileSync(path.join(newApp, 'version'), 'new');
-    const script = path.join(dir, 'install-update.sh');
+    const script = path.join(workDir, 'install-update.sh');
     fs.writeFileSync(script, HELPER_SCRIPT);
     const opened = path.join(dir, 'opened');
     const run = (newPath = newApp) => spawnSync('/bin/sh', [script, '999999', oldApp, newPath], {
@@ -177,15 +225,16 @@ describeOnMac('swap helper script', () => {
       encoding: 'utf8'
     });
     fs.writeFileSync(path.join(dir, 'fake-open'), `#!/bin/sh\necho "$1" > "${opened}"\n`, { mode: 0o755 });
-    return { dir, home, oldApp, newApp, opened, run };
+    return { dir, home, oldApp, newApp, workDir, opened, run };
   };
 
-  it('moves the old app to the Trash, the new one in, and opens it', () => {
-    const { dir, home, oldApp, opened, run } = setup();
+  it('moves the old app to the Trash, the new one in, opens it and removes its work dir', () => {
+    const { dir, home, oldApp, workDir, opened, run } = setup();
 
     const result = run();
 
     expect(result.status).toBe(0);
+    expect(fs.existsSync(workDir)).toBe(false);
     expect(fs.readFileSync(path.join(oldApp, 'version'), 'utf8')).toBe('new');
     const trashed = fs.readdirSync(path.join(home, '.Trash'));
     expect(trashed).toHaveLength(1);
@@ -195,11 +244,12 @@ describeOnMac('swap helper script', () => {
   });
 
   it('puts the old app back when the new one cannot be moved in', () => {
-    const { dir, home, oldApp, opened, run } = setup();
+    const { dir, home, oldApp, workDir, opened, run } = setup();
 
     const result = run(path.join(dir, 'missing', 'Hanuman.app'));
 
     expect(result.status).toBe(1);
+    expect(fs.existsSync(workDir)).toBe(true);
     expect(fs.readFileSync(path.join(oldApp, 'version'), 'utf8')).toBe('old');
     expect(fs.readdirSync(path.join(home, '.Trash'))).toHaveLength(0);
     expect(fs.readFileSync(opened, 'utf8').trim()).toBe(oldApp);

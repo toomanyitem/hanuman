@@ -6,6 +6,7 @@ jest.mock('electron', () => ({
   shell: { openExternal: jest.fn() }
 }));
 jest.mock('../store/preferences', () => ({ preferencesUtil: {} }));
+jest.mock('original-fs', () => jest.requireActual('fs'), { virtual: true });
 
 const fs = require('fs');
 const os = require('os');
@@ -71,5 +72,33 @@ describe('installUpdate', () => {
     expect(shell.openExternal).toHaveBeenCalledWith(releaseUrl);
     expect(app.quit).not.toHaveBeenCalled();
     expect(mainWindow.webContents.send).toHaveBeenLastCalledWith('main:update-download-progress', { version: '0.3.0', done: true });
+  });
+});
+
+describe('installUpdate cancelled after the download', () => {
+  it('does not offer to restart when Cancel is pressed while the download is being checked', async () => {
+    jest.clearAllMocks();
+    dialog.showMessageBox.mockResolvedValue({ response: 0 });
+    let installer;
+    const startSwapHelper = jest.fn();
+    jest.isolateModules(() => {
+      jest.doMock('../utils/update-install', () => ({
+        ...jest.requireActual('../utils/update-install'),
+        resolveInstallTarget: () => '/Applications/Hanuman.app',
+        downloadAsset: jest.fn().mockResolvedValue(),
+        extractAndVerify: jest.fn(async () => {
+          installer.cancelUpdateDownload();
+          return '/tmp/Hanuman.app';
+        }),
+        startSwapHelper
+      }));
+      installer = require('./updates');
+    });
+
+    await installer.installUpdate(mainWindow, { release, releaseUrl });
+
+    expect(dialog.showMessageBox).not.toHaveBeenCalled();
+    expect(app.quit).not.toHaveBeenCalled();
+    expect(startSwapHelper).not.toHaveBeenCalled();
   });
 });

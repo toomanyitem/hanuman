@@ -23,7 +23,7 @@ const config = {
     }
   ],
   files: ['**/*'],
-  afterPack: 'adhoc-sign.js',
+  afterPack: 'mac-sign.js',
   // No auto-updater reads app-update.yml; installers are uploaded with gh by the release scripts.
   publish: null,
   afterSign: 'notarize.js',
