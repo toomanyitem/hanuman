@@ -22,7 +22,7 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 - ฟีเจอร์ที่จะเพิ่มต่อไปดูได้ใน [เอกสารออกแบบ](docs/superpowers/specs/2026-10-20-hanuman-design.md): Git UI แบบเต็ม, data-driven testing, secret manager, Socket.IO/MQTT, load test, Mock Server แบบเต็ม, Monitor และ API Docs แบบออฟไลน์
 
 ### ติดตั้ง
-ดาวน์โหลดจากหน้า [Releases](https://github.com/toomanyitem/hanuman-releases/releases) (repo แยกที่เปิดเป็น public ไว้สำหรับไฟล์ติดตั้งโดยเฉพาะ)
+ดาวน์โหลดจากหน้า [Releases](https://github.com/toomanyitem/hanuman/releases) ของ repo นี้
 
 | ระบบ | ชิป | ไฟล์ |
 |---|---|---|
@@ -57,36 +57,33 @@ npm run dev                 # รันแอปแบบ dev
 รายละเอียดเพิ่มเติม: [contributing.md](contributing.md), [CODING_STANDARDS.md](CODING_STANDARDS.md) และ [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md) (วิธีดึงอัปเดตจาก Bruno)
 
 ### ออก release
-build ในเครื่องตัวเองแล้วอัปโหลดขึ้น GitHub Release ด้วย [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) (ไม่กินโควตา GitHub Actions)
+**ทางหลัก: GitHub Actions** repo นี้เป็น public จึงใช้ runner ของ GitHub ได้ฟรีทุกระบบ
 
-**macOS** build บน Mac (ต้อง `gh auth login` ไว้ก่อน)
+1. สร้าง tag ที่ commit ที่จะออก แล้ว push
+   ```bash
+   git tag v0.1.1 && git push origin v0.1.1
+   ```
+2. รัน workflow [`release.yml`](.github/workflows/release.yml) ที่แท็บ **Actions → Release → Run workflow** ใส่ tag แล้วเลือก `platforms`
+   - `all`: macOS, Windows, Linux, snap, CLI tarball และ Docker image ของ CLI (`ghcr.io/toomanyitem/hanuman-cli`)
+   - `macOS + Windows` หรือ `Windows`: เฉพาะที่เลือก
+
+   หรือสั่งจาก terminal: `gh workflow run release.yml -f tag=v0.1.1 -f platforms='macOS + Windows'`
+3. workflow สร้าง release ใน repo นี้แล้ว publish ทันที (ถ้ามี release ของ tag นั้นอยู่แล้วจะอัปโหลดไฟล์เพิ่มเข้าไป) แอปที่ติดตั้งไว้จะเห็นเวอร์ชันใหม่จาก release นี้
+
+**build ในเครื่อง** ด้วย [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) (ต้อง `gh auth login` ไว้ก่อน)
 ```bash
 npm i --legacy-peer-deps && npm run setup              # ครั้งแรกครั้งเดียว
-scripts/hanuman/release-local.sh v0.1.0 mac --upload   # macOS (Intel + Apple Silicon)
+scripts/hanuman/release-local.sh v0.1.1 mac --upload   # บน Mac: macOS (Intel + Apple Silicon)
 ```
-
-**Windows ยัง build ใน Docker บน Mac ชิป Apple ไม่ได้** ลองแล้วทั้งสองแบบใน Docker Desktop:
-- เปิด **Use Rosetta for x86_64/amd64 emulation**: แพ็กแอปผ่าน แต่ wine รันตัวติดตั้งของ NSIS ไม่ได้ (`c0000018`)
-- ปิด Rosetta (ใช้ QEMU): ตัว `app-builder` ของ electron-builder crash (`fatal error: lfstack.push`) ตั้งแต่ขั้นแพ็กแอป
-
-ให้ build Windows บนเครื่อง Windows หรือ Linux x86_64 หรือรัน workflow [`release.yml`](.github/workflows/release.yml) ที่แท็บ Actions (ใส่ tag ที่มีอยู่แล้วใน repo นี้ เช่น `v0.1.0`) โดยติ๊ก **windows_only** (build แค่ Windows ไม่ publish อะไร) แล้วอัปโหลดไฟล์จาก artifact `desktop-Windows` เข้า release เอง เช่น
-```bash
-gh run download <run-id> -n desktop-Windows -D win
-gh release upload v0.1.0 -R toomanyitem/hanuman-releases win/*.exe
-```
-
-**Linux + Windows + CLI** บนเครื่อง Linux x86_64
+บนเครื่อง Linux x86_64 build Linux + Windows + CLI ได้
 ```bash
 sudo dpkg --add-architecture i386 && sudo apt-get update
 sudo apt-get install rpm wine wine64 wine32:i386
-scripts/hanuman/release-local.sh v0.1.0 linux win cli --upload
+scripts/hanuman/release-local.sh v0.1.1 linux win cli --upload
 ```
-
-- `--upload` สร้าง release แบบ **draft** ใน [`toomanyitem/hanuman-releases`](https://github.com/toomanyitem/hanuman-releases) ถ้ายังไม่มี แล้วอัปโหลดไฟล์ (รันซ้ำได้ จะแทนที่ไฟล์เดิม) พอครบทุกระบบแล้วค่อยกด **Publish** บนหน้า GitHub แอปที่ติดตั้งไว้จะเห็นเวอร์ชันใหม่หลัง Publish เท่านั้น
-- [`release-docker.sh`](scripts/hanuman/release-docker.sh) build Linux + Windows + CLI ใน Docker จาก commit ปัจจุบัน (ต้อง commit ก่อน) ให้ Docker ใช้ RAM อย่างน้อย 8 GB บน Mac ชิป Apple ขั้น Windows จะล้มตามที่เขียนไว้ข้างบน และสคริปต์คัดลอกไฟล์ออกมาตอนจบเท่านั้น จึงไม่ได้ไฟล์ใดเลย
-- ไฟล์ที่ build ได้อยู่ที่ `dist/release/<tag>/`
-- แอป mac ที่ไม่มี Developer ID จะถูกเซ็นแบบ ad-hoc ให้อัตโนมัติ เพื่อให้เปิดบน Apple Silicon ได้
-- ถ้าไม่มีเครื่องว่าง ใช้ workflow [`release.yml`](.github/workflows/release.yml) ได้ (กดรันเองที่แท็บ Actions เท่านั้น) ซึ่งทำ Docker image ของ CLI ให้ด้วย ต้องตั้ง secret `HANUMAN_RELEASES_TOKEN` (fine-grained token ที่มีสิทธิ์ Contents: write ใน `hanuman-releases`) ก่อน
+- `--upload` สร้าง release แบบ **draft** ใน repo นี้ถ้ายังไม่มี แล้วอัปโหลดไฟล์ (รันซ้ำได้ จะแทนที่ไฟล์เดิม) พอครบแล้วค่อยกด **Publish** บนหน้า GitHub แอปที่ติดตั้งไว้จะเห็นเวอร์ชันใหม่หลัง Publish เท่านั้น
+- ไฟล์ที่ build ได้อยู่ที่ `dist/release/<tag>/` แอป mac ที่ไม่มี Developer ID จะถูกเซ็นแบบ ad-hoc ให้อัตโนมัติ เพื่อให้เปิดบน Apple Silicon ได้
+- **Windows build ใน Docker บน Mac ชิป Apple ไม่ได้** ([`release-docker.sh`](scripts/hanuman/release-docker.sh)): ถ้าเปิด Rosetta ใน Docker Desktop wine จะรันตัวติดตั้งของ NSIS ไม่ได้ (`c0000018`) ถ้าปิด Rosetta (QEMU) ตัว `app-builder` ของ electron-builder จะ crash (`fatal error: lfstack.push`) ให้ใช้ GitHub Actions แทน
 
 ---
 
@@ -97,11 +94,11 @@ scripts/hanuman/release-local.sh v0.1.0 linux win cli --upload
 - **No telemetry or analytics.** Nothing leaves your machine unless you ask (for example, by sending a request).
 - System-browser OAuth2 uses a local loopback callback (`http://127.0.0.1:9876/callback`) instead of a vendor-hosted redirect.
 - Installs side by side with Bruno (its own `hanuman://` protocol and data folder).
-- Update notices: **Help → Check for Updates…** or **Preferences → General → Updates** (the check at startup is opt-in). The app only asks GitHub for the latest release of `toomanyitem/hanuman-releases`.
+- Update notices: **Help → Check for Updates…** or **Preferences → General → Updates** (the check at startup is opt-in). The app only asks GitHub for the latest release of `toomanyitem/hanuman`.
 - Roadmap: see the [design spec](docs/superpowers/specs/2026-10-20-hanuman-design.md) — full Git UI, data-driven testing, secret managers, Socket.IO/MQTT, load testing, a full mock server, monitors, and offline API docs.
 
 ### Install
-Download from [Releases](https://github.com/toomanyitem/hanuman-releases/releases), a public repository that only holds the installers.
+Download from this repository's [Releases](https://github.com/toomanyitem/hanuman/releases).
 
 Releases currently ship **macOS and Windows**: macOS Intel and Apple Silicon (`hanuman_<version>_x64_mac.dmg` / `_arm64_mac.dmg`, or `.pkg`, `.zip`), and Windows as one installer for x64 and ARM64 (`hanuman_<version>_win.exe`) or a smaller one per architecture (`_x64_win.exe`, `_arm64_win.exe`). There are no Linux, snap or CLI downloads yet; build them from source (see [Releasing](#releasing)).
 
@@ -124,7 +121,9 @@ nvm use && npm i --legacy-peer-deps && npm run setup && npm run dev
 See [contributing.md](contributing.md), [CODING_STANDARDS.md](CODING_STANDARDS.md) and [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md).
 
 ### Releasing
-Build on your own machines with [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) and upload to a draft release in [`toomanyitem/hanuman-releases`](https://github.com/toomanyitem/hanuman-releases) (`--upload`), then publish it once every platform is attached (installed apps only see published releases) — an x86_64 Linux machine builds Linux x64/arm64, Windows (via wine) and the CLI; a Mac builds macOS Intel/Apple Silicon (`release-local.sh <tag> mac --upload`). On an Apple Silicon Mac, Windows cannot be built in Docker yet: with Docker Desktop's Rosetta emulation wine cannot run the NSIS installer (`c0000018`), and with QEMU electron-builder's `app-builder` crashes (`fatal error: lfstack.push`). [`release-docker.sh`](scripts/hanuman/release-docker.sh) builds Windows in the same run as Linux and the CLI and copies files out only at the end, so on Apple Silicon it produces nothing. The manual [`release.yml`](.github/workflows/release.yml) workflow does the same on GitHub Actions (including the CLI Docker images) when no machine is available; it takes a tag that already exists in this repository, and its `windows_only` input builds just the Windows installer and publishes nothing, leaving it as the `desktop-Windows` run artifact to upload to the release yourself.
+The usual path is GitHub Actions, which is free for this public repository: push a tag (`git tag v0.1.1 && git push origin v0.1.1`), then run the [`release.yml`](.github/workflows/release.yml) workflow from the Actions tab (or `gh workflow run release.yml -f tag=v0.1.1 -f platforms='macOS + Windows'`). `platforms` is `all` (macOS, Windows, Linux, the snap, the CLI tarball and the `ghcr.io/toomanyitem/hanuman-cli` images), `macOS + Windows`, or `Windows`. The workflow creates and publishes the release in this repository, or adds the files to it if it already exists; installed apps see the new version from there.
+
+To build on your own machine, use [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) `<tag> <targets> --upload`: a Mac builds macOS Intel/Apple Silicon; an x86_64 Linux machine builds Linux x64/arm64, Windows (via wine) and the CLI. `--upload` creates a draft release in this repository; publish it once every platform is attached (installed apps only see published releases). On an Apple Silicon Mac, Windows cannot be built in Docker ([`release-docker.sh`](scripts/hanuman/release-docker.sh)): under Docker Desktop's Rosetta emulation wine cannot run the NSIS installer (`c0000018`), and under QEMU electron-builder's `app-builder` crashes (`fatal error: lfstack.push`).
 
 ---
 
