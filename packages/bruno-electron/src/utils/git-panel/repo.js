@@ -31,7 +31,25 @@ const rejectNonZeroExit = (error, result) => {
 const localGit = (repoRoot, env = {}) =>
   simpleGit({ baseDir: repoRoot, errors: rejectNonZeroExit }).env({ ...nonInteractiveEnv(), ...env });
 
-const networkGit = (repoRoot, remoteUrl, extraEnv = {}) => {
+// .git/config travels with a copied or shared folder, so it is not trusted with a token: a proxy, a resolve
+// override or a weakened TLS check there could hand the token to another server. The user's global config is.
+const TOKEN_UNSAFE_LOCAL_KEY = /^(http\.(.+\.)?(proxy|sslcainfo|sslcapath|curloptresolve)|remote\..+\.proxy)$/i;
+const TLS_VERIFY_KEY = /^http\.(.+\.)?sslverify$/i;
+const FALSE_VALUES = new Set(['false', 'no', 'off', '0', '']);
+
+const assertLocalConfigSafeForToken = async (repoRoot, host) => {
+  const entries = (await localGit(repoRoot).raw(['config', '--local', '--includes', '--list', '-z'])).split('\0').filter(Boolean);
+  for (const entry of entries) {
+    const newline = entry.indexOf('\n');
+    const key = newline === -1 ? entry : entry.slice(0, newline);
+    const value = newline === -1 ? 'true' : entry.slice(newline + 1);
+    if (TOKEN_UNSAFE_LOCAL_KEY.test(key) || (TLS_VERIFY_KEY.test(key) && FALSE_VALUES.has(value.trim().toLowerCase()))) {
+      throw new Error(`This repository's own Git settings set "${key}", which could send your access token for ${host} to another server. Remove that setting from .git/config, or remove the saved token for ${host}, then try again.`);
+    }
+  }
+};
+
+const networkGit = async (repoRoot, remoteUrl, extraEnv = {}) => {
   const host = hostFromRemoteUrl(remoteUrl);
   const credential = host ? gitCredentialStore.get(host) : null;
   if (!credential) {
@@ -40,6 +58,7 @@ const networkGit = (repoRoot, remoteUrl, extraEnv = {}) => {
       secrets: []
     };
   }
+  await assertLocalConfigSafeForToken(repoRoot, host);
   const git = simpleGit({
     baseDir: repoRoot,
     config: credentialConfig(remoteUrl),

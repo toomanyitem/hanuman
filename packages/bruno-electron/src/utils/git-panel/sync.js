@@ -11,9 +11,11 @@ const getRemoteUrl = async (repoRoot, remote, { forPush = false } = {}) => {
 
 const runNetwork = async (repoRoot, remote, args, env = {}) => {
   const url = await getRemoteUrl(repoRoot, remote, { forPush: args[0] === 'push' });
-  const { git, secrets } = networkGit(repoRoot, url, env);
+  let secrets = [];
   try {
-    return await git.raw(args);
+    const network = await networkGit(repoRoot, url, env);
+    secrets = network.secrets;
+    return await network.git.raw(args);
   } catch (error) {
     throw toGitError(error, secrets);
   }

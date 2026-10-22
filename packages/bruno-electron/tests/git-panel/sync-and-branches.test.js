@@ -91,6 +91,35 @@ describe('git-panel fetch, pull and push', () => {
       server.close();
     }
   });
+
+  test('refuses to attach a token when the repository config redirects traffic', async () => {
+    let requests = 0;
+    const server = http.createServer((req, res) => {
+      requests += 1;
+      res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="git"' });
+      res.end();
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const host = `127.0.0.1:${server.address().port}`;
+    git(a, ['remote', 'add', 'x', `http://${host}/repo.git`]);
+    mockCredentials.set(host, { username: 'bob', token: 'tok-SECRET-123' });
+    try {
+      git(a, ['config', '--local', `http.http://${host}/.proxy`, 'http://127.0.0.1:9']);
+      await expect(fetchRemote(a, { remote: 'x' })).rejects.toThrow(/proxy.*access token/);
+
+      git(a, ['config', '--local', '--unset', `http.http://${host}/.proxy`]);
+      git(a, ['config', '--local', 'http.sslVerify', 'false']);
+      await expect(fetchRemote(a, { remote: 'x' })).rejects.toThrow(/sslverify/);
+      expect(requests).toBe(0);
+
+      git(a, ['config', '--local', 'http.sslVerify', 'true']);
+      await expect(fetchRemote(a, { remote: 'x' })).rejects.not.toThrow(/access token for/);
+      expect(requests).toBeGreaterThan(0);
+    } finally {
+      mockCredentials.clear();
+      server.close();
+    }
+  });
 });
 
 describe('git-panel branches, remotes and init', () => {
