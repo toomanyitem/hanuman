@@ -33,10 +33,12 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 ตอนนี้ release มีเฉพาะ **macOS และ Windows** ส่วน Linux, snap และ CLI ยังไม่มีไฟล์ติดตั้ง ถ้าต้องใช้ให้ build เองจาก source (ดูหัวข้อ [ออก release](#ออก-release))
 
 **แอปยังไม่ได้เซ็นโค้ด** จึงต้องทำเพิ่มครั้งแรก:
-- **macOS:** ลาก Hanuman จาก dmg ไปไว้ที่ Applications แล้วรันคำสั่งนี้ใน Terminal ก่อนเปิดครั้งแรก ไม่อย่างนั้น macOS จะไม่ยอมเปิดแอปที่ไม่ได้เซ็นด้วย Apple Developer ID
-  ```bash
-  xattr -d com.apple.quarantine /Applications/Hanuman.app
-  ```
+- **macOS:** ลาก Hanuman จาก dmg ไปไว้ที่ Applications แล้วเลือกทำวิธีใดวิธีหนึ่งก่อนเปิดครั้งแรก ไม่อย่างนั้น macOS จะไม่ยอมเปิดแอปที่ไม่ได้เซ็นด้วย Apple Developer ID
+  - **ไม่ใช้ Terminal:** เปิด Hanuman หนึ่งครั้ง พอขึ้นคำเตือนให้กด **Done** แล้วไปที่ **System Settings → Privacy & Security** เลื่อนลงไปที่ข้อความเรื่อง Hanuman กด **Open Anyway** ยืนยันด้วยรหัสผ่านหรือ Touch ID แล้วกด **Open Anyway** อีกครั้ง
+  - **ใช้ Terminal:** รันคำสั่งนี้
+    ```bash
+    xattr -d com.apple.quarantine /Applications/Hanuman.app
+    ```
 - **Windows:** ถ้าขึ้น SmartScreen ให้กด **More info → Run anyway**
 
 **CLI:** ยังไม่มีใน release build เองได้ด้วย `scripts/hanuman/release-local.sh <tag> cli` จะได้ `dist/release/<tag>/hanuman-cli_<version>.tgz` แล้วรัน `npm i -g ./dist/release/<tag>/hanuman-cli_<version>.tgz` จะได้คำสั่ง `hanuman` (และ `bru`) ใช้ได้ทุกระบบที่มี Node.js 22
@@ -104,10 +106,12 @@ Download from this repository's [Releases](https://github.com/toomanyitem/hanuma
 Releases currently ship **macOS and Windows**: macOS Intel and Apple Silicon (`hanuman_<version>_x64_mac.dmg` / `_arm64_mac.dmg`, or `.pkg`, `.zip`), and Windows as one installer for x64 and ARM64 (`hanuman_<version>_win.exe`) or a smaller one per architecture (`_x64_win.exe`, `_arm64_win.exe`). There are no Linux, snap or CLI downloads yet; build them from source (see [Releasing](#releasing)).
 
 Builds are **unsigned**:
-- **macOS:** drag Hanuman from the dmg to Applications, then run this once in Terminal before the first launch; otherwise macOS refuses to open an app that is not signed with an Apple Developer ID:
-  ```bash
-  xattr -d com.apple.quarantine /Applications/Hanuman.app
-  ```
+- **macOS:** drag Hanuman from the dmg to Applications, then do one of these before the first launch; otherwise macOS refuses to open an app that is not signed with an Apple Developer ID:
+  - **Without Terminal:** open Hanuman once and choose **Done** on the warning, then go to **System Settings → Privacy & Security**, scroll to the message about Hanuman, choose **Open Anyway**, confirm with your password or Touch ID, and choose **Open Anyway** again.
+  - **With Terminal:** run
+    ```bash
+    xattr -d com.apple.quarantine /Applications/Hanuman.app
+    ```
 - **Windows:** on the SmartScreen prompt choose **More info → Run anyway**.
 
 **CLI:** not in the releases yet. `scripts/hanuman/release-local.sh <tag> cli` builds `dist/release/<tag>/hanuman-cli_<version>.tgz`; install it with `npm i -g ./dist/release/<tag>/hanuman-cli_<version>.tgz` to get the `hanuman` (and `bru`) command on any system with Node.js 22.
