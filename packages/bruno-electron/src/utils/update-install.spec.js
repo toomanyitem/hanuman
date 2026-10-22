@@ -118,7 +118,10 @@ describe('verifyBundleInfo', () => {
   });
 });
 
-describe('resolveInstallTarget', () => {
+// The updater only runs on macOS; these use POSIX paths and permissions.
+const describeOnPosix = process.platform === 'win32' ? describe.skip : describe;
+
+describeOnPosix('resolveInstallTarget', () => {
   const exePath = '/Applications/Hanuman.app/Contents/MacOS/Hanuman';
   const writable = () => {};
 

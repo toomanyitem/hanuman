@@ -25,14 +25,18 @@ const release = {
   }]
 };
 
-describe('installUpdate', () => {
+// The updater only runs on macOS; these use POSIX paths and permissions.
+const describeOnPosix = process.platform === 'win32' ? describe.skip : describe;
+const runsAsRoot = Boolean(process.getuid && process.getuid() === 0);
+
+describeOnPosix('installUpdate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(console, 'error').mockImplementation(() => {});
     dialog.showMessageBox.mockResolvedValue({ response: 0 });
   });
 
-  it('falls back to the release page when the app folder is not writable', async () => {
+  (runsAsRoot ? it.skip : it)('falls back to the release page when the app folder is not writable', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hanuman-updates-spec-'));
     const exe = path.join(dir, 'Hanuman.app', 'Contents', 'MacOS', 'Hanuman');
     fs.mkdirSync(path.dirname(exe), { recursive: true });
