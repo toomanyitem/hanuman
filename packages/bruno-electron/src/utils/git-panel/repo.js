@@ -31,20 +31,20 @@ const rejectNonZeroExit = (error, result) => {
 const localGit = (repoRoot, env = {}) =>
   simpleGit({ baseDir: repoRoot, errors: rejectNonZeroExit }).env({ ...nonInteractiveEnv(), ...env });
 
-// .git/config travels with a copied or shared folder, so it is not trusted with a token: a proxy, a resolve
-// override or a weakened TLS check there could hand the token to another server. The user's global config is.
-const TOKEN_UNSAFE_LOCAL_KEY = /^(http\.(.+\.)?(proxy|sslcainfo|sslcapath|curloptresolve)|remote\..+\.proxy)$/i;
-const TLS_VERIFY_KEY = /^http\.(.+\.)?sslverify$/i;
-const FALSE_VALUES = new Set(['false', 'no', 'off', '0', '']);
+// Repository config (.git/config, config.worktree and anything they include) travels with a copied or shared
+// folder, so it is not trusted with a token: a proxy, a resolve override, a custom CA or a TLS setting there could
+// hand the token to another server. Any such key is refused whatever its value, so Git's own boolean parsing never
+// has to be reproduced here. The user's system and global config are still trusted.
+const TOKEN_UNSAFE_KEY = /^(http\.(.+\.)?(proxy|sslverify|sslcainfo|sslcapath|curloptresolve)|remote\..+\.proxy)$/i;
+const REPO_SCOPES = new Set(['local', 'worktree']);
 
-const assertLocalConfigSafeForToken = async (repoRoot, host) => {
-  const entries = (await localGit(repoRoot).raw(['config', '--local', '--includes', '--list', '-z'])).split('\0').filter(Boolean);
-  for (const entry of entries) {
-    const newline = entry.indexOf('\n');
-    const key = newline === -1 ? entry : entry.slice(0, newline);
-    const value = newline === -1 ? 'true' : entry.slice(newline + 1);
-    if (TOKEN_UNSAFE_LOCAL_KEY.test(key) || (TLS_VERIFY_KEY.test(key) && FALSE_VALUES.has(value.trim().toLowerCase()))) {
-      throw new Error(`This repository's own Git settings set "${key}", which could send your access token for ${host} to another server. Remove that setting from .git/config, or remove the saved token for ${host}, then try again.`);
+const assertRepoConfigSafeForToken = async (repoRoot, host) => {
+  // -z output: scope NUL key LF value NUL
+  const fields = (await localGit(repoRoot).raw(['config', '--list', '--show-scope', '--includes', '-z'])).split('\0');
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+    const key = fields[i + 1].split('\n')[0];
+    if (REPO_SCOPES.has(fields[i]) && TOKEN_UNSAFE_KEY.test(key)) {
+      throw new Error(`This repository's own Git settings set "${key}", which could send your access token for ${host} to another server. Remove that setting from the repository's Git config, or remove the saved token for ${host}, then try again.`);
     }
   }
 };
@@ -58,7 +58,7 @@ const networkGit = async (repoRoot, remoteUrl, extraEnv = {}) => {
       secrets: []
     };
   }
-  await assertLocalConfigSafeForToken(repoRoot, host);
+  await assertRepoConfigSafeForToken(repoRoot, host);
   const git = simpleGit({
     baseDir: repoRoot,
     config: credentialConfig(remoteUrl),

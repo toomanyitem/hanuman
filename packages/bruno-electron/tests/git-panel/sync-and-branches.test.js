@@ -108,11 +108,16 @@ describe('git-panel fetch, pull and push', () => {
       await expect(fetchRemote(a, { remote: 'x' })).rejects.toThrow(/proxy.*access token/);
 
       git(a, ['config', '--local', '--unset', `http.http://${host}/.proxy`]);
-      git(a, ['config', '--local', 'http.sslVerify', 'false']);
+      git(a, ['config', '--local', 'http.sslVerify', 'NO']);
       await expect(fetchRemote(a, { remote: 'x' })).rejects.toThrow(/sslverify/);
+      git(a, ['config', '--local', '--unset', 'http.sslVerify']);
+
+      git(a, ['config', '--local', 'extensions.worktreeConfig', 'true']);
+      git(a, ['config', '--worktree', 'http.sslCAInfo', '/tmp/evil-ca.pem']);
+      await expect(fetchRemote(a, { remote: 'x' })).rejects.toThrow(/sslcainfo/);
       expect(requests).toBe(0);
 
-      git(a, ['config', '--local', 'http.sslVerify', 'true']);
+      git(a, ['config', '--worktree', '--unset', 'http.sslCAInfo']);
       await expect(fetchRemote(a, { remote: 'x' })).rejects.not.toThrow(/access token for/);
       expect(requests).toBeGreaterThan(0);
     } finally {
