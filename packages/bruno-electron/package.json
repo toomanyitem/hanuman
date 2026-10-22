@@ -9,7 +9,7 @@
   },
   "private": true,
   "main": "src/index.js",
-  "author": "Anoop M D <anoop.md1421@gmail.com> (https://helloanoop.com/)",
+  "author": "toomanyitem",
   "scripts": {
     "clean": "rimraf dist",
     "dev": "electron .",

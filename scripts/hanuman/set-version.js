@@ -2,11 +2,15 @@
 'use strict';
 
 // Stamp the release version (from a `vX.Y.Z` tag) into the app packages that
-// report it at runtime: the Electron main process and the renderer.
+// report it at runtime: the Electron main process, the renderer and the CLI.
 const fs = require('fs');
 const path = require('path');
 
-const PACKAGES = ['packages/bruno-electron/package.json', 'packages/bruno-app/package.json'];
+const PACKAGES = [
+  'packages/bruno-electron/package.json',
+  'packages/bruno-app/package.json',
+  'packages/bruno-cli/package.json'
+];
 
 const tag = process.argv[2];
 const version = (tag || '').replace(/^v/, '');

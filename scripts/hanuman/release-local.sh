@@ -81,7 +81,7 @@ if [ "$UPLOAD_ONLY" = true ]; then
 fi
 
 # set-version.js rewrites these; put them back however the script exits.
-VERSIONED_FILES=(packages/bruno-electron/package.json packages/bruno-app/package.json)
+VERSIONED_FILES=(packages/bruno-electron/package.json packages/bruno-app/package.json packages/bruno-cli/package.json)
 for f in "${VERSIONED_FILES[@]}"; do cp "$f" "$f.release-backup"; done
 restore_versions() {
   for f in "${VERSIONED_FILES[@]}"; do [ -f "$f.release-backup" ] && mv "$f.release-backup" "$f"; done
