@@ -38,26 +38,32 @@ const credentialEnv = ({ username, token }) => ({
   [HELPER_TOKEN_ENV]: token
 });
 
-// https://user:password@host keeps the user; https://TOKEN@host (GitHub's token-only form) hides it all.
-const HTTP_USERINFO_PATTERN = /(https?:\/\/)([^/@\s]+)@/gi;
+// scheme://user:password@host keeps the user; scheme://TOKEN@host (GitHub's token-only form) hides it all.
+const USERINFO_PATTERN = /([a-z][a-z0-9+.-]*:\/\/)([^/@\s]+)@/gi;
 
 const redactUrl = (url) => {
   if (typeof url !== 'string') return url;
-  return url.replace(HTTP_USERINFO_PATTERN, (match, scheme, userinfo) => {
+  return url.replace(USERINFO_PATTERN, (match, scheme, userinfo) => {
     const separator = userinfo.indexOf(':');
     return separator === -1 ? `${scheme}***@` : `${scheme}${userinfo.slice(0, separator)}:***@`;
   });
 };
 
-// A URL edited in the app starts from its redacted form; put the stored credentials back instead of saving "***".
+const URL_PARTS = /^([a-z][a-z0-9+.-]*:\/\/)(?:([^/@\s]+)@)?([^/\s]*)/i;
+
+// A URL edited in the app starts from its redacted form; put the stored credentials back instead of saving "***",
+// but only while it still points at the same scheme and host, so the credentials can't be sent somewhere new.
 const restoreRedactedUserinfo = (nextUrl, currentUrl) => {
-  const redacted = /^(https?:\/\/)[^/@\s]*\*\*\*[^/@\s]*@/i;
-  if (!redacted.test(nextUrl)) return nextUrl;
-  const current = /^https?:\/\/([^/@\s]+)@/i.exec(currentUrl || '');
-  if (!current) {
+  const next = URL_PARTS.exec(nextUrl);
+  if (!next || !next[2] || !next[2].includes('***')) return nextUrl;
+  const current = URL_PARTS.exec(currentUrl || '');
+  const sameTarget = current && current[2]
+    && current[1].toLowerCase() === next[1].toLowerCase()
+    && current[3].toLowerCase() === next[3].toLowerCase();
+  if (!sameTarget) {
     throw new Error('"***" stands for a hidden password. Type the real credentials or remove them from the URL.');
   }
-  return nextUrl.replace(redacted, `$1${current[1]}@`);
+  return `${next[1]}${current[2]}@${nextUrl.slice(next[0].length - next[3].length)}`;
 };
 
 const scrubSecrets = (text, secrets = []) => {

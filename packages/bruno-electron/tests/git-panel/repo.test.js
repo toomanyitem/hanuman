@@ -102,6 +102,10 @@ describe('git-panel auth helpers', () => {
     expect(restoreRedactedUserinfo('https://***@h/new.git', 'https://TOKEN@h/old.git')).toBe('https://TOKEN@h/new.git');
     expect(restoreRedactedUserinfo('https://h/new.git', 'https://bob:pw@h/old.git')).toBe('https://h/new.git');
     expect(() => restoreRedactedUserinfo('https://***@h/new.git', 'https://h/old.git')).toThrow('hidden password');
+    expect(() => restoreRedactedUserinfo('https://bob:***@evil.example/x.git', 'https://bob:pw@h/old.git')).toThrow('hidden password');
+    expect(() => restoreRedactedUserinfo('http://bob:***@h/x.git', 'https://bob:pw@h/old.git')).toThrow('hidden password');
+    expect(restoreRedactedUserinfo('https://bob:***@h/new.git', 'https://bob:p$&w@h/old.git')).toBe('https://bob:p$&w@h/new.git');
+    expect(redactUrl('ssh://deploy:pw@h/x.git')).toBe('ssh://deploy:***@h/x.git');
   });
 
   test('hostFromRemoteUrl handles https hosts and ignores ssh remotes', () => {

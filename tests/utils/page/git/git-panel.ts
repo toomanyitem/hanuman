@@ -20,7 +20,8 @@ export const buildGitPanelLocators = (page: Page) => {
     conflict: (): Locator => panel().getByTestId('git-conflict'),
     button: (testId: string): Locator => page.getByTestId(testId),
     branchesModal: (): Locator => page.locator('.bruno-modal-card').filter({ has: page.locator('.bruno-modal-header-title', { hasText: 'Branches' }) }),
-    branchRow: (name: string): Locator => page.locator(`[data-testid="git-branch-item"][data-branch="${name}"]`)
+    branchRow: (name: string): Locator => page.locator(`[data-testid="git-branch-item"][data-branch="${name}"]`),
+    tab: (): Locator => page.locator('.request-tab').filter({ hasText: 'Git' })
   };
 };
 
@@ -32,6 +33,14 @@ export const openGitPanel = async (page: Page, collectionName: string) => {
     await collectionRow.hover();
     await collectionRow.locator('.collection-actions .icon').click();
     await page.getByTestId('collection-actions-git').click();
+    await expect(buildGitPanelLocators(page).panel()).toBeVisible();
+  });
+};
+
+export const openWorkspaceGitPanel = async (page: Page) => {
+  await test.step('Open the workspace Git panel', async () => {
+    await page.getByTestId('collections-header-actions-menu').click();
+    await page.getByTestId('collections-header-actions-menu-workspace-git').click();
     await expect(buildGitPanelLocators(page).panel()).toBeVisible();
   });
 };

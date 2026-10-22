@@ -87,6 +87,7 @@ npm run dev                      # เปิดแอปดูหน้าแร
 | `bruno-app/src/components/Sidebar/Sections/CollectionsSection/index.js` | เมนู **Git (workspace)** (ซ่อนใน workspace default) |
 | `tests/utils/page/locators.ts`, `tests/utils/page/index.ts` | map `gitPanel` และ re-export page module |
 | `.github/workflows/tests-linux.yml` | job `git-panel-e2e` รันบนทุก PR (e2e ชุดเต็มยังกดรันเอง) |
+| `.gitignore` | `.omc/` (state ของเครื่องมือ AI ที่ใช้พัฒนา) |
 
 ### ถ้า upstream ปล่อย Git UI แบบ OSS
 ตามข้อ 9 รายการ 9 ของเอกสารออกแบบ ให้เปลี่ยนไปใช้ของ upstream แล้วลบไฟล์ใหม่ข้างบนออก

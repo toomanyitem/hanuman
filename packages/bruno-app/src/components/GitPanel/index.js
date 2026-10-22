@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { mountCollection } from 'providers/ReduxStore/slices/collections/actions';
 import ErrorBanner from 'ui/ErrorBanner';
 import Button from 'ui/Button';
 import GitNotFoundModal from 'components/Git/GitNotFoundModal';
@@ -176,6 +177,7 @@ const GitPanelContent = ({ targetPath }) => {
 };
 
 const GitPanel = ({ collection }) => {
+  const dispatch = useDispatch();
   const gitVersion = useSelector((state) => state.app.gitVersion);
   const workspaces = useSelector((state) => state.workspaces.workspaces);
   const [showGitHelp, setShowGitHelp] = useState(false);
@@ -184,11 +186,24 @@ const GitPanel = ({ collection }) => {
   const workspace = workspaces.find((w) => w.scratchCollectionUid === collection.uid);
   const targetPath = workspace ? workspace.pathname : collection.pathname;
 
+  // The main process accepts Git calls only for collections it is watching, which starts when the collection
+  // mounts. A tab restored after a restart can be shown before that, so mount it and wait.
+  const waitingForMount = !workspace && collection.mountStatus !== 'mounted';
+  useEffect(() => {
+    if (!workspace && collection.mountStatus !== 'mounted' && collection.mountStatus !== 'mounting') {
+      dispatch(mountCollection({
+        collectionUid: collection.uid,
+        collectionPathname: collection.pathname,
+        brunoConfig: collection.brunoConfig
+      }));
+    }
+  }, [workspace, collection.mountStatus, collection.uid, collection.pathname, collection.brunoConfig, dispatch]);
+
   return (
     <StyledWrapper className="flex flex-col h-full" data-testid="git-panel" data-target={targetPath}>
-      {gitVersion ? (
-        <GitPanelContent key={targetPath} targetPath={targetPath} />
-      ) : (
+      {waitingForMount && <div className="p-4 text-sm opacity-70">Loading the collection…</div>}
+      {!waitingForMount && gitVersion && <GitPanelContent key={targetPath} targetPath={targetPath} />}
+      {!waitingForMount && !gitVersion && (
         <div className="flex flex-col items-center gap-3 p-8 text-sm" data-testid="git-missing">
           Git was not found on this computer. Install Git, then restart Hanuman.
           <Button size="sm" variant="ghost" onClick={() => setShowGitHelp(true)}>
