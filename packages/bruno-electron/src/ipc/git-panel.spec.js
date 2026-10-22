@@ -18,6 +18,10 @@ jest.mock('../utils/encryption', () => ({
   decryptString: (value) => Buffer.from(value.slice(4), 'base64').toString()
 }));
 
+const mockWatchers = {};
+jest.mock('../app/collection-watcher', () => ({ watchers: mockWatchers }));
+jest.mock('../store/last-opened-workspaces', () => jest.fn().mockImplementation(() => ({ getAll: () => [] })));
+
 const { ipcMain } = require('electron');
 const registerGitPanelIpc = require('./git-panel');
 const { handleGitPanel, GIT_PANEL_ACTIONS } = require('./git-panel');
@@ -36,9 +40,13 @@ describe('git-panel IPC', () => {
     await expect(handleGitPanel('nope', {})).rejects.toThrow('Unknown Git action: nope');
   });
 
-  test('status of a folder outside any repo', async () => {
+  test('runs only for open collections or workspaces', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-panel-ipc-'));
+    await expect(handleGitPanel('status', { targetPath: dir })).rejects.toThrow('only available for open collections and workspaces');
+
+    mockWatchers[dir] = {};
     await expect(handleGitPanel('status', { targetPath: dir })).resolves.toEqual({ isRepo: false });
+    delete mockWatchers[dir];
   });
 
   test('credentials are stored encrypted and never returned', async () => {

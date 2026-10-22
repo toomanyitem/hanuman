@@ -129,6 +129,21 @@ describe('git-panel conflicts', () => {
     expect((await getPanelStatus(collectionB)).files.some((file) => file.conflicted)).toBe(false);
     expect(await listStashes(collectionB)).toHaveLength(1);
     await expect(continueOperation(collectionB)).rejects.toThrow('No merge or rebase in progress');
+    await expect(resolveConflict(collectionB, { path: 'collection/ping.bru', choice: 'content', content: 'x' }))
+      .rejects.toThrow('Not a conflicted file');
+  });
+
+  // creating symlinks needs extra privileges on Windows
+  (process.platform === 'win32' ? test.skip : test)('refuses to write a conflict through a symlink or outside the scope', async () => {
+    divergeOnPing();
+    await expect(pull(collectionB, { mode: 'merge' })).rejects.toThrow();
+    await expect(resolveConflict(collectionB, { path: 'collection\\..\\README.md', choice: 'content', content: 'x' }))
+      .rejects.toThrow('Path is not valid');
+    fs.renameSync(path.join(b, 'collection/ping.bru'), path.join(b, 'collection/ping.real'));
+    fs.symlinkSync(path.join(b, 'README.md'), path.join(b, 'collection/ping.bru'));
+    await expect(resolveConflict(collectionB, { path: 'collection/ping.bru', choice: 'content', content: 'x' }))
+      .rejects.toThrow('symbolic link');
+    expect(read(b, 'README.md')).toBe('outside the collection\n');
   });
 
   test('abort during a merge restores the previous HEAD', async () => {

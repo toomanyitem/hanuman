@@ -63,3 +63,30 @@ npm run dev                      # เปิดแอปดูหน้าแร
 
 ### ไม่เปลี่ยน (ตั้งใจ)
 ชื่อ package `@usebruno/*`, นามสกุล `.bru`, `bruno.json`/`opencollection.yml`, API สคริปต์ `bru.*`, ชื่อโฟลเดอร์ `packages/bruno-*` และชื่อตัวแปรภายใน เพื่อให้ merge ได้ง่าย
+
+## สิ่งที่เปลี่ยนจาก upstream (เฟส 1 — Git UI)
+
+โค้ดของแผง Git อยู่ในไฟล์ใหม่ทั้งหมด upstream ถูกแก้แค่จุดเสียบในตารางนี้ ถ้า merge แล้ว conflict ให้รับของ upstream ก่อน แล้วใส่บรรทัดของเรากลับในจุดเดิม
+
+### ไฟล์ใหม่
+- `bruno-electron/src/utils/git-panel/*` คำสั่ง git ของแผง (status, stage, commit, fetch/pull/push, branch, remote, stash, conflict) รันผ่าน `simple-git` ทีละคำสั่งต่อ repo
+- `bruno-electron/src/ipc/git-panel.js` IPC `renderer:git-panel:*` (รับเฉพาะ path ของ collection หรือ workspace ที่เปิดอยู่)
+- `bruno-electron/src/store/git-credentials.js` token ต่อ host เข้ารหัสด้วย `utils/encryption.js` (safeStorage ถ้ามี ถ้าไม่มี เช่น Linux ที่ไม่มี keyring จะใช้ AES แทน)
+- `bruno-electron/tests/git-panel/*` เทสต์กับ repo จริงใน temp dir
+- `bruno-app/src/components/GitPanel/*` UI ของแผง
+- `tests/git-panel/*`, `tests/utils/page/git/git-panel.ts` e2e กับ bare repo ในเครื่อง
+
+### จุดเสียบในไฟล์ upstream
+| ไฟล์ | สิ่งที่เพิ่ม |
+|---|---|
+| `bruno-electron/src/index.js` | require และเรียก `registerGitPanelIpc()` ต่อจาก `registerGitIpc` |
+| `bruno-app/src/components/RequestTabPanel/index.js` | import `GitPanel` และบล็อก `if (focusedTab.type === 'git')` |
+| `bruno-app/src/components/RequestTabs/RequestTab/index.js` | `'git'` ใน `specialTabs` |
+| `bruno-app/src/components/RequestTabs/RequestTab/SpecialTab.js` | `case 'git'` (ไอคอนและชื่อแท็บ) |
+| `bruno-app/src/components/Sidebar/Collections/Collection/CollectionRow/index.jsx` | เมนู **Git** ในเมนู ⋯ ของ collection |
+| `bruno-app/src/components/Sidebar/Sections/CollectionsSection/index.js` | เมนู **Git (workspace)** (ซ่อนใน workspace default) |
+| `tests/utils/page/locators.ts`, `tests/utils/page/index.ts` | map `gitPanel` และ re-export page module |
+| `.github/workflows/tests-linux.yml` | job `git-panel-e2e` รันบนทุก PR (e2e ชุดเต็มยังกดรันเอง) |
+
+### ถ้า upstream ปล่อย Git UI แบบ OSS
+ตามข้อ 9 รายการ 9 ของเอกสารออกแบบ ให้เปลี่ยนไปใช้ของ upstream แล้วลบไฟล์ใหม่ข้างบนออก

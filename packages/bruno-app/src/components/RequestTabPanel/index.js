@@ -43,6 +43,7 @@ import Preferences from 'components/Preferences';
 import EnvironmentSettings from 'components/Environments/EnvironmentSettings';
 import GlobalEnvironmentSettings from 'components/Environments/GlobalEnvironmentSettings';
 import OpenAPISyncTab from 'components/OpenAPISyncTab';
+import GitPanel from 'components/GitPanel';
 import OpenAPISpecTab from 'components/OpenAPISpecTab';
 import ApiSpecTab from 'components/ApiSpecTab';
 import MockServerDashboard from 'components/MockServer/MockServerDashboard';
@@ -586,6 +587,10 @@ const RequestTabPanel = () => {
 
   if (focusedTab.type === 'openapi-sync') {
     return <OpenAPISyncTab collection={collection} />;
+  }
+
+  if (focusedTab.type === 'git') {
+    return <GitPanel collection={collection} />;
   }
 
   if (focusedTab.type === 'openapi-spec') {

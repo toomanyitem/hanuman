@@ -16,6 +16,23 @@ const readStage = async (git, stage, filePath) => {
   }
 };
 
+// Only paths git lists as unmerged are written, never through a symlink, and only under the repo.
+const resolveConflictFilePath = async (git, repoRoot, filePath) => {
+  const unmerged = (await git.raw(['diff', '--name-only', '--diff-filter=U', '--', filePath])).split(/\r\n|\r|\n/);
+  if (!unmerged.includes(filePath)) {
+    throw new Error(`Not a conflicted file: ${filePath}`);
+  }
+  const fullPath = path.resolve(repoRoot, filePath);
+  const parent = fs.realpathSync.native(path.dirname(fullPath));
+  if (parent !== repoRoot && !parent.startsWith(`${repoRoot}${path.sep}`)) {
+    throw new Error(`Path is outside the repository: ${filePath}`);
+  }
+  if (fs.existsSync(fullPath) && fs.lstatSync(fullPath).isSymbolicLink()) {
+    throw new Error(`Refusing to read or write through a symbolic link: ${filePath}`);
+  }
+  return fullPath;
+};
+
 const withConflictFile = async (targetPath, filePath, fn) => {
   const { repoRoot, scope } = await requireRepo(targetPath);
   assertPathsInScope(scope, [filePath]);
@@ -30,7 +47,7 @@ const withConflictFile = async (targetPath, filePath, fn) => {
 
 const getConflict = (targetPath, { path: filePath } = {}) =>
   withConflictFile(targetPath, filePath, async (git, repoRoot) => {
-    const fullPath = path.join(repoRoot, filePath);
+    const fullPath = await resolveConflictFilePath(git, repoRoot, filePath);
     return {
       path: filePath,
       operation: await getOperation(repoRoot),
@@ -49,7 +66,7 @@ const resolveConflict = (targetPath, { path: filePath, choice, content } = {}) =
       if (UNRESOLVED_MARKER.test(content)) {
         throw new Error('The file still has conflict markers (<<<<<<< or >>>>>>>)');
       }
-      fs.writeFileSync(path.join(repoRoot, filePath), content, 'utf8');
+      fs.writeFileSync(await resolveConflictFilePath(git, repoRoot, filePath), content, 'utf8');
       return git.raw(['add', '--', filePath]);
     }
 

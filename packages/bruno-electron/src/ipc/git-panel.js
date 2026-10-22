@@ -1,7 +1,12 @@
+const fs = require('fs');
 const path = require('path');
 const { ipcMain } = require('electron');
 const gitPanel = require('../utils/git-panel');
+const collectionWatcher = require('../app/collection-watcher');
+const LastOpenedWorkspaces = require('../store/last-opened-workspaces');
 const { gitCredentialStore } = require('../store/git-credentials');
+
+const lastOpenedWorkspaces = new LastOpenedWorkspaces();
 
 const repoHandlers = {
   'status': ({ targetPath }) => gitPanel.getPanelStatus(targetPath),
@@ -58,6 +63,24 @@ const credentialHandlers = {
   }
 };
 
+const toRealPath = (p) => {
+  try {
+    return fs.realpathSync.native(p);
+  } catch (error) {
+    return path.resolve(p);
+  }
+};
+
+// Git commands run only in folders the user already has open, so a stray renderer call can't drive git elsewhere.
+const assertOpenTarget = (targetPath) => {
+  const watchedCollections = Object.keys(collectionWatcher.watchers || {}).filter((p) => collectionWatcher.watchers[p]);
+  const openRoots = [...watchedCollections, ...lastOpenedWorkspaces.getAll()];
+  const target = toRealPath(targetPath);
+  if (!openRoots.some((root) => toRealPath(root) === target)) {
+    throw new Error('Git actions are only available for open collections and workspaces');
+  }
+};
+
 const handleGitPanel = async (action, args = {}) => {
   if (Object.prototype.hasOwnProperty.call(credentialHandlers, action)) {
     return credentialHandlers[action](args || {});
@@ -69,6 +92,7 @@ const handleGitPanel = async (action, args = {}) => {
   if (typeof targetPath !== 'string' || !path.isAbsolute(targetPath)) {
     throw new Error('targetPath must be an absolute path');
   }
+  assertOpenTarget(targetPath);
   return repoHandlers[action](args);
 };
 

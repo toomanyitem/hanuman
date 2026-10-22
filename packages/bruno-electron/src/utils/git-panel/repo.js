@@ -118,7 +118,7 @@ const assertPathsInScope = (scope, paths) => {
     throw new Error('No files given');
   }
   for (const p of paths) {
-    if (typeof p !== 'string' || !p || p.startsWith('-') || path.posix.isAbsolute(p) || p.split('/').includes('..')) {
+    if (typeof p !== 'string' || !p || p.startsWith('-') || /[\\\0]/.test(p) || path.posix.isAbsolute(p) || path.win32.isAbsolute(p) || p.split('/').includes('..')) {
       throw new Error(`Path is not valid: ${p}`);
     }
     if (scope !== '.' && p !== scope && !p.startsWith(`${scope}/`)) {

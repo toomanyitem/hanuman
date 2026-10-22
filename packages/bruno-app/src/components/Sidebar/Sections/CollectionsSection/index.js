@@ -13,11 +13,14 @@ import {
   IconSortDescendingLetters,
   IconSquareX,
   IconBox,
-  IconTerminal2
+  IconTerminal2,
+  IconGitBranch
 } from '@tabler/icons';
 
 import { importCollection, importCollectionFromZip, newHttpRequest } from 'providers/ReduxStore/slices/collections/actions';
 import { sortCollections } from 'providers/ReduxStore/slices/collections/index';
+import { addTab } from 'providers/ReduxStore/slices/tabs';
+import { getGitPanelTab } from 'components/GitPanel/utils';
 import { savePreferences, setIsCreatingCollection, setIsOpeningCollection, toggleSidebarSearch } from 'providers/ReduxStore/slices/app';
 import { normalizePath } from 'utils/common/path';
 import { isScratchCollection, flattenItems, isItemTransientRequest } from 'utils/collections';
@@ -291,7 +294,20 @@ const CollectionsSection = () => {
       onClick: () => {
         openDevtoolsAndSwitchToTerminal(dispatch, activeWorkspace?.pathname);
       }
-    }
+    },
+    ...(activeWorkspace?.type !== 'default' && activeWorkspace?.pathname && activeWorkspace?.scratchCollectionUid
+      ? [
+          {
+            id: 'workspace-git',
+            leftSection: IconGitBranch,
+            label: 'Git (workspace)',
+            testId: 'workspace-actions-git',
+            onClick: () => {
+              dispatch(addTab(getGitPanelTab(activeWorkspace.scratchCollectionUid)));
+            }
+          }
+        ]
+      : [])
   ];
 
   const sectionActions = (
