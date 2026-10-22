@@ -22,6 +22,11 @@ describe('isNewerVersion', () => {
 });
 
 describe('checkForUpdates', () => {
+  it('reads releases from the public toomanyitem/hanuman repository', () => {
+    expect(LATEST_RELEASE_API_URL).toBe('https://api.github.com/repos/toomanyitem/hanuman/releases/latest');
+    expect(RELEASES_PAGE_URL).toBe('https://github.com/toomanyitem/hanuman/releases');
+  });
+
   it('asks GitHub for the latest release with no extra data', async () => {
     const fetch = respond(200, { tag_name: 'v0.1.0', html_url: 'https://example.test/r' });
     await checkForUpdates({ currentVersion: '0.1.0', fetch });

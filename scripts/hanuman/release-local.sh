@@ -8,9 +8,8 @@
 #            macOS: mac · Linux: linux win cli · Windows: win)
 #   --upload: create the release as a draft if it does not exist yet, then
 #             upload (or replace) the files. Needs `gh auth login`.
-#             Releases go to the public repository the app checks for
-#             updates (HANUMAN_RELEASE_REPO, default toomanyitem/hanuman-releases),
-#             so the source repository can stay private.
+#             Releases go to toomanyitem/hanuman, where the app checks for
+#             updates (override with HANUMAN_RELEASE_REPO).
 #   --upload-only: skip building and upload what is already in dist/release/<tag>
 #             (e.g. files built by scripts/hanuman/release-docker.sh).
 #
@@ -59,7 +58,7 @@ if [ ${#TARGETS[@]} -eq 0 ]; then
 fi
 
 RELEASE_DIR="$ROOT_DIR/dist/release/$TAG"
-RELEASE_REPO="${HANUMAN_RELEASE_REPO:-toomanyitem/hanuman-releases}"
+RELEASE_REPO="${HANUMAN_RELEASE_REPO:-toomanyitem/hanuman}"
 mkdir -p "$RELEASE_DIR"
 
 cd "$ROOT_DIR"
@@ -67,7 +66,8 @@ cd "$ROOT_DIR"
 upload() {
   if ! gh release view "$TAG" -R "$RELEASE_REPO" > /dev/null 2>&1; then
     echo "==> Creating draft release $TAG in $RELEASE_REPO (publish it on GitHub when every platform is uploaded)"
-    gh release create "$TAG" -R "$RELEASE_REPO" --draft --title "Hanuman $TAG" \
+    # --target makes publishing create a missing tag at the commit that was built.
+    gh release create "$TAG" -R "$RELEASE_REPO" --draft --title "Hanuman $TAG" --target "$(git rev-parse HEAD)" \
       --notes "Built from toomanyitem/hanuman@$(git rev-parse --short HEAD). Download the installer for your system below; the builds are unsigned (see the readme)."
   fi
   echo "==> Uploading to release $TAG in $RELEASE_REPO"

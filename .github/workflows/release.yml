@@ -4,19 +4,22 @@ name: Release
 # (x64 + arm64), a snap, the CLI tarball and multi-arch CLI Docker images — and
 # attaches them to a GitHub Release. Builds are unsigned (see readme.md).
 #
-# Manual only: releases are normally built locally with
-# scripts/hanuman/release-local.sh to save private-repo Actions minutes. Run this
-# from the Actions tab when a machine isn't available.
+# Manual: run it from the Actions tab with an existing tag. The release is
+# created (or updated) in this repository, where the app checks for updates.
 on:
   workflow_dispatch:
     inputs:
       tag:
         description: 'Existing tag to (re)build, e.g. v0.1.0'
         required: true
-      windows_only:
-        description: 'Build only the Windows installer (no release is published; download it from the run artifacts)'
-        type: boolean
-        default: false
+      platforms:
+        description: 'What to build. Anything short of "all" skips the snap, the CLI and its Docker images'
+        type: choice
+        default: all
+        options:
+          - all
+          - macOS + Windows
+          - Windows
 
 concurrency:
   group: release-${{ github.event.inputs.tag }}
@@ -32,25 +35,20 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      # macOS runners burn private-repo minutes 10x; set the repository variable
-      # HANUMAN_SKIP_MAC_BUILD=true to build mac locally instead (see readme.md).
       # Targets and arches come from packages/bruno-electron/electron-builder-config.js.
       - id: matrix
         env:
-          SKIP_MAC: ${{ vars.HANUMAN_SKIP_MAC_BUILD }}
-          WINDOWS_ONLY: ${{ inputs.windows_only }}
+          PLATFORMS: ${{ inputs.platforms }}
         run: |
           targets='[
             {"name":"macOS","os":"macos-latest","builder-args":"--mac"},
             {"name":"Windows","os":"windows-latest","builder-args":"--win"},
             {"name":"Linux","os":"ubuntu-latest","builder-args":"--linux"}
           ]'
-          if [ "$SKIP_MAC" = "true" ]; then
-            targets=$(echo "$targets" | jq -c 'map(select(.name != "macOS"))')
-          fi
-          if [ "$WINDOWS_ONLY" = "true" ]; then
-            targets=$(echo "$targets" | jq -c 'map(select(.name == "Windows"))')
-          fi
+          case "$PLATFORMS" in
+            'macOS + Windows') targets=$(echo "$targets" | jq -c 'map(select(.name != "Linux"))') ;;
+            Windows) targets=$(echo "$targets" | jq -c 'map(select(.name == "Windows"))') ;;
+          esac
           echo "matrix=$(echo "$targets" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
 
   build-desktop:
@@ -121,7 +119,7 @@ jobs:
   build-snap:
     name: Build Snap
     # electron-builder 24 only emits core20/core22 snaps, so build on 22.04.
-    if: ${{ !inputs.windows_only }}
+    if: ${{ inputs.platforms == 'all' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     # A snap problem should not hold back the other installers.
@@ -161,8 +159,7 @@ jobs:
 
   build-cli:
     name: Build CLI bundle and Docker images
-    # Skipping this also skips the release job, which needs it to succeed.
-    if: ${{ !inputs.windows_only }}
+    if: ${{ inputs.platforms == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -237,24 +234,20 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: [build-desktop, build-snap, build-cli]
-    if: ${{ !cancelled() && needs.build-cli.result == 'success' && needs.build-desktop.result != 'failure' }}
+    if: ${{ !cancelled() && needs.build-desktop.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.build-cli.result) }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: release-files
           merge-multiple: true
 
-      # Installers go to the public releases repository the app checks for
-      # updates. The workflow token can't write there, so this needs a
-      # fine-grained token with Contents: write on that repository, stored as the
-      # HANUMAN_RELEASES_TOKEN secret.
       - name: Create or update release
         env:
-          GH_TOKEN: ${{ secrets.HANUMAN_RELEASES_TOKEN }}
-          GH_REPO: ${{ vars.HANUMAN_RELEASE_REPO || 'toomanyitem/hanuman-releases' }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           ls -la release-files
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then

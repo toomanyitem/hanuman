@@ -52,9 +52,9 @@
 ## 5. ข้อจำกัดและการตัดสินใจหลัก
 
 ### 5.1 Repo และการแจกจ่าย (ผู้ใช้เลือกแล้ว)
-- repo: `github.com/toomanyitem/hanuman` แบบ **private** สร้างเป็น repo ใหม่ ไม่ใช้ปุ่ม Fork ของ GitHub เพราะ fork ของ repo public ตั้งเป็น private ไม่ได้
+- repo: `github.com/toomanyitem/hanuman` สร้างเป็น repo ใหม่ ไม่ใช้ปุ่ม Fork ของ GitHub (ตอนแรกตั้งเป็น private) ผู้ใช้เปลี่ยนเป็น **public** เมื่อ 2026-10-22 เพื่อรวมไฟล์ติดตั้งไว้ใน repo เดียว และใช้ GitHub Actions ได้ฟรี
 - ตั้ง remote `upstream` ชี้ไปที่ `https://github.com/usebruno/bruno.git`
-- ทีมงานต้องถูกเพิ่มเป็น collaborator ของ repo จึงจะโหลด Releases ได้ (บัญชี GitHub Free ให้ collaborator ของ repo private ได้ไม่จำกัด)
+- ใครก็ดาวน์โหลดไฟล์ติดตั้งจาก Releases ของ repo นี้ได้ ไม่ต้องเป็น collaborator
 
 ### 5.2 ชื่อและแบรนด์ (ผู้ใช้เลือกแล้ว: **Hanuman**)
 - MIT ให้สิทธิ์แค่ตัวโค้ด ไม่รวมชื่อและโลโก้ Bruno จึงต้องเปลี่ยนชื่อทุกจุดที่ผู้ใช้มองเห็น ได้แก่ ชื่อแอป, `productName`, appId (`com.toomanyitem.hanuman`), ไอคอน, title bar, หน้า About, หน้า Welcome และเมนู
@@ -302,5 +302,5 @@
 21. **การแจ้งเตือนในแอป** (`ipc/notifications.js`) จะดึงก็ต่อเมื่อตั้ง `HANUMAN_INFO_ENDPOINT` ไว้เท่านั้น
 22. **โลโก้:** หน้าหนุมานขนขาว สวมชฎาทองประดับทับทิม ลายหน้าสีแดง บนพื้นสีน้ำเงิน ไฟล์ต้นฉบับคือ `assets/brand/hanuman-logo-source.png` (สี่เหลี่ยมจัตุรัสเต็มกรอบ) ไอคอนและโลโก้ในแอปทุกจุดสร้างจากไฟล์นี้ด้วย `scripts/hanuman/make-icons.py` คอมโพเนนต์ `components/Bruno` เปลี่ยนเป็น re-export ของ `components/HanumanLogo` เพื่อไม่ต้องแก้จุดที่ upstream import
 23. **ข้อความที่ยังคงคำว่า Bruno โดยตั้งใจ:** ชื่อรูปแบบไฟล์ ("Bruno collection", "Bruno's native file format"), ลิงก์ไปเอกสาร docs.usebruno.com, ค่า `exportedUsing` ในไฟล์ export, marker ใน `.gitignore` ที่ upstream จัดการ, prompt ของ AI ที่อธิบาย API `bru.*` และเครดิตใน About/NOTICE
-24. **ไฟล์ติดตั้งและการแจ้งเวอร์ชันใหม่:** ไฟล์ติดตั้งเผยแพร่ใน repo public แยก `toomanyitem/hanuman-releases` ส่วนโค้ดยังเป็น private แอปเช็กเวอร์ชันใหม่จาก GitHub API ของ repo นั้น (ไม่ต้องฝัง token) เช็กเมื่อผู้ใช้สั่งผ่านเมนู/ปุ่ม หรือตอนเปิดแอปถ้าผู้ใช้เปิด `updates.checkAutomatically` เอง (ค่าเริ่มต้นปิด ตามหลักไม่ส่งข้อมูลออกโดยไม่สั่ง) แสดงแค่แจ้งเตือนและเปิดหน้าดาวน์โหลด ยังไม่ติดตั้งเอง เพราะ macOS ต้องเซ็นโค้ดก่อนถึงจะอัปเดตตัวเองได้
+24. **ไฟล์ติดตั้งและการแจ้งเวอร์ชันใหม่:** ไฟล์ติดตั้งเผยแพร่ใน Releases ของ `toomanyitem/hanuman` (v0.1.0 เคยอยู่ใน repo แยก `toomanyitem/hanuman-releases` ตอนที่โค้ดยังเป็น private) แอปเช็กเวอร์ชันใหม่จาก GitHub API ของ repo นี้ (ไม่ต้องฝัง token) เช็กเมื่อผู้ใช้สั่งผ่านเมนู/ปุ่ม หรือตอนเปิดแอปถ้าผู้ใช้เปิด `updates.checkAutomatically` เอง (ค่าเริ่มต้นปิด ตามหลักไม่ส่งข้อมูลออกโดยไม่สั่ง) แสดงแค่แจ้งเตือนและเปิดหน้าดาวน์โหลด ยังไม่ติดตั้งเอง เพราะ macOS ต้องเซ็นโค้ดก่อนถึงจะอัปเดตตัวเองได้
 

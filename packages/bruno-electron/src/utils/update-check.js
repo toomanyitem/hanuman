@@ -1,8 +1,7 @@
 const { net } = require('electron');
 
-// Installers are published to a public repository so the app can read them
-// without credentials; the source repository stays private.
-const RELEASES_REPO = 'toomanyitem/hanuman-releases';
+// Releases are public, so the app reads them without credentials.
+const RELEASES_REPO = 'toomanyitem/hanuman';
 const RELEASES_PAGE_URL = `https://github.com/${RELEASES_REPO}/releases`;
 const LATEST_RELEASE_API_URL = `https://api.github.com/repos/${RELEASES_REPO}/releases/latest`;
 
