@@ -44,7 +44,7 @@
    - `getAheadBehindCount`: swallows errors and returns zeros.
    - `createStash`: no pathspec.
    - `push/pull/fetch` helpers: share the cached simple-git instance, so a token set with `.env()` would stick to later calls.
-5. Access tokens: per host (`github.com`, `gitlab.example.com:8443`), with a username, because Bitbucket and Gitea check it. The token is injected only for HTTPS remotes whose host matches, through an env-backed credential helper that replaces the user's helpers for that one command. SSH uses the user's agent with `BatchMode=yes`.
+5. Access tokens: per host (`github.com`, `gitlab.example.com:8443`), with a username, because Bitbucket and Gitea check it. The token is injected only for HTTPS remotes whose host matches, through an env-backed credential helper that replaces the user's helpers for that one command. SSH uses the user's own config (agent, `core.sshCommand`, `GIT_SSH`); with no TTY it fails instead of prompting. (Review change: the first version forced `GIT_SSH_COMMAND=ssh -o BatchMode=yes`, which overrode `core.sshCommand`.)
 6. Conflict choices are labelled **Current** and **Incoming**, with a one-line note per operation, because `ours` and `theirs` swap meaning during a rebase.
 7. The workspace Git tab does not come back after an app restart (upstream never snapshots scratch-collection tabs). The collection Git tab does.
 8. A PR-only CI job runs `tests/git-panel` on Linux. The full e2e suite stays `workflow_dispatch`-only.
@@ -104,7 +104,7 @@ Plug-in edits to upstream files: `bruno-electron/src/index.js` (register), `brun
 - Produces (`repo.js`):
   - `resolveRepo(targetPath: string) => Promise<{ repoRoot: string, scope: string } | null>`: `null` when not inside a repo. `scope` is the posix path of `targetPath` relative to `repoRoot`, `'.'` at the root.
   - `withRepoLock(repoRoot: string, fn: () => Promise<T>) => Promise<T>`: runs calls for the same `repoRoot` one at a time. A failure doesn't block later calls.
-  - `localGit(repoRoot) => SimpleGit`: fresh instance, env `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`, `GIT_SSH_COMMAND` defaulting to `ssh -o BatchMode=yes` unless set.
+  - `localGit(repoRoot) => SimpleGit`: fresh instance, env `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`, `GIT_LITERAL_PATHSPECS=1`, `GIT_OPTIONAL_LOCKS=0`.
   - `networkGit(repoRoot, remoteUrl) => SimpleGit`: as `localGit`, plus `timeout: { block: 60000 }`, plus credential config from `auth.js` when a token exists for the URL's host.
   - `getOperation(repoRoot) => Promise<null | 'merge' | 'rebase'>`: uses `rev-parse --git-path MERGE_HEAD | rebase-merge | rebase-apply`.
   - `assertBranchName(git, name)`, `assertSafeArg(value, label)`: throw `Error('<label> is not valid')`.
