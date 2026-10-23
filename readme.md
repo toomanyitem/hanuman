@@ -41,7 +41,7 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
     xattr -d com.apple.quarantine /Applications/Hanuman.app
     ```
 - **Windows:** ถ้าขึ้น SmartScreen ให้กด **More info → Run anyway**
-- **macOS keychain:** แอป mac ทุก release เซ็นด้วย certificate ใบเดียวกัน (self-signed) macOS จึงจำได้ว่าเป็นแอปเดิม ถ้าขึ้น "Hanuman wants to use your confidential information stored in 'hanuman Safe Storage'" ให้กด **Always Allow** ครั้งเดียว (ครั้งแรกหลังย้ายจาก v0.2.0 หรือเก่ากว่า ซึ่งเซ็นแบบ ad-hoc) แล้วจะไม่ถามอีกตอนอัปเดต
+- **macOS keychain:** หลังอัปเดตแต่ละครั้ง macOS จะถามหนึ่งครั้งว่า "Hanuman wants to use your confidential information stored in 'hanuman Safe Storage'" ให้ใส่รหัสผ่านเครื่องแล้วกด **Always Allow** (แอปไม่ได้เซ็นด้วย Apple Developer ID macOS จึงมองว่าแต่ละเวอร์ชันเป็นแอปใหม่)
 
 **CLI:** ยังไม่มีใน release build เองได้ด้วย `scripts/hanuman/release-local.sh <tag> cli` จะได้ `dist/release/<tag>/hanuman-cli_<version>.tgz` แล้วรัน `npm i -g ./dist/release/<tag>/hanuman-cli_<version>.tgz` จะได้คำสั่ง `hanuman` (และ `bru`) ใช้ได้ทุกระบบที่มี Node.js 22
 
@@ -89,7 +89,7 @@ sudo apt-get install rpm wine wine64 wine32:i386
 scripts/hanuman/release-local.sh v0.1.2 linux win cli --upload
 ```
 - `--upload` สร้าง release แบบ **draft** ใน repo นี้ถ้ายังไม่มี แล้วอัปโหลดไฟล์ (รันซ้ำได้ จะแทนที่ไฟล์เดิม) พอครบแล้วค่อยกด **Publish** บนหน้า GitHub แอปที่ติดตั้งไว้จะเห็นเวอร์ชันใหม่หลัง Publish เท่านั้น
-- ไฟล์ที่ build ได้อยู่ที่ `dist/release/<tag>/` แอป mac ที่ไม่มี Developer ID จะถูกเซ็นแบบ ad-hoc ให้อัตโนมัติ เพื่อให้เปิดบน Apple Silicon ได้ · release จาก GitHub Actions เซ็นแอป mac ด้วย certificate ของ repo (self-signed, SHA-1 ปักไว้ใน `HANUMAN_MAC_CERT_SHA1` ของ [`release.yml`](.github/workflows/release.yml)) ผ่าน [`sign-mac-app.sh`](scripts/hanuman/sign-mac-app.sh) ใน job แยกที่ไม่ลง npm ต้องตั้ง secret `MAC_SIGNING_P12_BASE64` (ไฟล์ .p12 แบบ base64) และ `MAC_SIGNING_P12_PASSWORD` ก่อน (ไม่มี workflow จะหยุด) build mac ในเครื่องเป็น ad-hoc แอปที่ติดตั้งจาก release จะไม่ยอมอัปเดตเป็น build นั้น
+- ไฟล์ที่ build ได้อยู่ที่ `dist/release/<tag>/` แอป mac ที่ไม่มี Developer ID จะถูกเซ็นแบบ ad-hoc ให้อัตโนมัติ เพื่อให้เปิดบน Apple Silicon ได้
 - **Windows build ใน Docker บน Mac ชิป Apple ไม่ได้** ([`release-docker.sh`](scripts/hanuman/release-docker.sh)): ถ้าเปิด Rosetta ใน Docker Desktop wine จะรันตัวติดตั้งของ NSIS ไม่ได้ (`c0000018`) ถ้าปิด Rosetta (QEMU) ตัว `app-builder` ของ electron-builder จะ crash (`fatal error: lfstack.push`) ให้ใช้ GitHub Actions แทน
 
 ---
@@ -118,7 +118,7 @@ Builds are **not signed with an Apple Developer ID**, so the first install needs
     xattr -d com.apple.quarantine /Applications/Hanuman.app
     ```
 - **Windows:** on the SmartScreen prompt choose **More info → Run anyway**.
-- **macOS keychain:** every macOS release is signed with the same self-signed certificate, so macOS knows it is the same app. If you see "Hanuman wants to use your confidential information stored in 'hanuman Safe Storage'", choose **Always Allow** once (the first time after moving from v0.2.0 or earlier, which were ad-hoc signed); updates won't ask again.
+- **macOS keychain:** after each update macOS asks once: "Hanuman wants to use your confidential information stored in 'hanuman Safe Storage'". Enter your password and choose **Always Allow**. The app isn't signed with an Apple Developer ID, so macOS treats each version as a new app.
 
 **CLI:** not in the releases yet. `scripts/hanuman/release-local.sh <tag> cli` builds `dist/release/<tag>/hanuman-cli_<version>.tgz`; install it with `npm i -g ./dist/release/<tag>/hanuman-cli_<version>.tgz` to get the `hanuman` (and `bru`) command on any system with Node.js 22.
 
@@ -136,7 +136,7 @@ See [contributing.md](contributing.md), [CODING_STANDARDS.md](CODING_STANDARDS.m
 ### Releasing
 The usual path is GitHub Actions, which is free for this public repository: push a tag (`git tag v0.1.2 && git push origin v0.1.2`), then run the [`release.yml`](.github/workflows/release.yml) workflow from the Actions tab (or `gh workflow run release.yml -f tag=v0.1.2 -f platforms='macOS + Windows'`). `platforms` is `all` (macOS, Windows, Linux, the snap, the CLI tarball and the `ghcr.io/toomanyitem/hanuman-cli` images), `macOS + Windows`, or `Windows`. The workflow creates and publishes the release in this repository, or adds the files to it if it already exists; installed apps see the new version from there. To check the files before apps see them, create a draft first (`gh release create v0.1.2 --draft --verify-tag --title "Hanuman v0.1.2"`); the workflow uploads into it, and you publish it when you are done.
 
-To build on your own machine, use [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) `<tag> <targets> --upload`: a Mac builds macOS Intel/Apple Silicon; an x86_64 Linux machine builds Linux x64/arm64, Windows (via wine) and the CLI. `--upload` creates a draft release in this repository; publish it once every platform is attached (installed apps only see published releases). Local macOS builds are signed ad-hoc. The release workflow signs macOS apps with the repository's self-signed certificate (SHA-1 pinned in `HANUMAN_MAC_CERT_SHA1` in [`release.yml`](.github/workflows/release.yml)) using [`sign-mac-app.sh`](scripts/hanuman/sign-mac-app.sh) in a separate job that installs no npm packages; set the `MAC_SIGNING_P12_BASE64` (base64 .p12) and `MAC_SIGNING_P12_PASSWORD` secrets first, or the workflow stops. Installed apps refuse to update to a macOS build that isn't signed with that certificate, such as a local ad-hoc build. On an Apple Silicon Mac, Windows cannot be built in Docker ([`release-docker.sh`](scripts/hanuman/release-docker.sh)): under Docker Desktop's Rosetta emulation wine cannot run the NSIS installer (`c0000018`), and under QEMU electron-builder's `app-builder` crashes (`fatal error: lfstack.push`).
+To build on your own machine, use [`scripts/hanuman/release-local.sh`](scripts/hanuman/release-local.sh) `<tag> <targets> --upload`: a Mac builds macOS Intel/Apple Silicon; an x86_64 Linux machine builds Linux x64/arm64, Windows (via wine) and the CLI. `--upload` creates a draft release in this repository; publish it once every platform is attached (installed apps only see published releases). On an Apple Silicon Mac, Windows cannot be built in Docker ([`release-docker.sh`](scripts/hanuman/release-docker.sh)): under Docker Desktop's Rosetta emulation wine cannot run the NSIS installer (`c0000018`), and under QEMU electron-builder's `app-builder` crashes (`fatal error: lfstack.push`).
 
 ---
 

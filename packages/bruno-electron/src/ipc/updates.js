@@ -77,7 +77,7 @@ const installUpdate = async (mainWindow, { release, releaseUrl }) => {
     workDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'hanuman-update-'));
     const zipPath = path.join(workDir, asset.name);
     await downloadAsset({ url: asset.url, sha256: asset.sha256, destPath: zipPath, fetch: net.fetch, signal: activeDownload.signal, onProgress: reportProgress });
-    const newAppPath = await extractAndVerify({ zipPath, workDir, expectedVersion: asset.version, currentVersion: app.getVersion(), runningAppPath: bundlePath });
+    const newAppPath = await extractAndVerify({ zipPath, workDir, expectedVersion: asset.version, currentVersion: app.getVersion() });
     // The toast offers Cancel until here, including while the download is unzipped and checked.
     activeDownload.signal.throwIfAborted();
     endProgress();

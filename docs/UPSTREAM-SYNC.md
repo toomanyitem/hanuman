@@ -52,7 +52,6 @@ npm run dev                      # เปิดแอปดูหน้าแร
 | `bruno-electron/src/ipc/updates.js`, `utils/update-check.js`, `utils/update-install.js` (ไฟล์ใหม่), `index.js`, `app/menu-template.js`, `store/preferences.js`, `bruno-app/.../Preferences/General`, `slices/app.js`, `bruno-app/src/providers/App/useIpcEvents.js` (toast `main:update-download-progress`) | แจ้งเวอร์ชันใหม่จาก release ของ `toomanyitem/hanuman` (preference `updates.checkAutomatically`) และบน macOS ดาวน์โหลด ตรวจ และติดตั้งทับในแอปได้ (`renderer:cancel-update-download`) |
 | `scripts/build-electron.js` | รองรับ `ELECTRON_BUILDER_ARGS`, แก้บั๊ก `util.promisify(spawn)` ที่ทำให้สคริปต์จบด้วย exit 0 แม้ build ล้ม |
 | `.github/workflows/*` | ปิด workflow ที่ใช้ self-hosted runner, เพิ่ม `release.yml` (กดรันเอง) และ fork-invariants ใน `lint-checks.yml` |
-| `release.yml` (job `sign-macos`, `package-macos`), `scripts/hanuman/sign-mac-app.sh` (ไฟล์ใหม่) | macOS: pack ด้วย `--mac dir` → เซ็นด้วย certificate self-signed ของ release (secret `MAC_SIGNING_P12_BASE64`/`MAC_SIGNING_P12_PASSWORD`, SHA-1 ปักไว้ใน `HANUMAN_MAC_CERT_SHA1`) ใน job ที่ไม่ลง npm → ทำ installer ด้วย `--prepackaged` |
 | ไฟล์ใหม่: `scripts/hanuman/*`, `docker/cli/`, `docker/release/` | build/release ในเครื่อง, ตั้งเวอร์ชัน, ตรวจ invariant, Docker image ของ CLI |
 
 ### แบรนด์

@@ -113,39 +113,20 @@ const verifyBundleInfo = ({ bundleId, version }, { expectedVersion, currentVersi
   }
 };
 
-/**
- * The designated requirement from `codesign -d -r-`. Ad-hoc builds only have an
- * implicit `# designated => cdhash …`, which changes every build, so they get null.
- */
-const parseDesignatedRequirement = (codesignOutput) => {
-  const match = /^designated => (.+)$/m.exec(codesignOutput);
-  return match ? match[1] : null;
-};
-
-/**
- * Checks the new app's signature and, when this copy is signed with a certificate,
- * that the new app satisfies this copy's designated requirement: the same check the
- * keychain uses, so an update that passes keeps access to "Hanuman Safe Storage".
- * An ad-hoc signed copy (0.2.0 and earlier) has no stable requirement to compare.
- */
-const verifySignature = async ({ appPath, runningAppPath }) => {
-  const { stdout } = await execFileAsync('codesign', ['-d', '-r-', runningAppPath]);
-  const requirement = parseDesignatedRequirement(stdout);
-  const args = ['--verify', '--deep', '--strict', ...(requirement ? ['-R', `=${requirement}`] : []), appPath];
+/** Checks the new app's signature is intact, so macOS won't report it as damaged. */
+const verifySignature = async (appPath) => {
   try {
-    await execFileAsync('codesign', args);
+    await execFileAsync('codesign', ['--verify', '--deep', '--strict', appPath]);
   } catch {
-    throw new Error(requirement
-      ? 'The download is not signed with the same certificate as this copy of Hanuman.'
-      : 'The download\'s code signature is broken, so macOS would report the app as damaged.');
+    throw new Error('The download\'s code signature is broken, so macOS would report the app as damaged.');
   }
 };
 
 /**
- * Unzips the download next to it and checks it is a newer, intact Hanuman signed
- * like the running copy. Returns the path of the extracted .app.
+ * Unzips the download next to it and checks it is a newer, intact Hanuman.
+ * Returns the path of the extracted .app.
  */
-const extractAndVerify = async ({ zipPath, workDir, expectedVersion, currentVersion, runningAppPath }) => {
+const extractAndVerify = async ({ zipPath, workDir, expectedVersion, currentVersion }) => {
   const outDir = path.join(workDir, 'extracted');
   await execFileAsync('ditto', ['-x', '-k', '--noqtn', zipPath, outDir]);
   const entries = await fs.promises.readdir(outDir);
@@ -154,7 +135,7 @@ const extractAndVerify = async ({ zipPath, workDir, expectedVersion, currentVers
   }
   const appPath = path.join(outDir, entries[0]);
   verifyBundleInfo(await readBundleInfo(appPath), { expectedVersion, currentVersion });
-  await verifySignature({ appPath, runningAppPath });
+  await verifySignature(appPath);
   return appPath;
 };
 
@@ -214,7 +195,6 @@ module.exports = {
   resolveInstallTarget,
   downloadAsset,
   verifyBundleInfo,
-  parseDesignatedRequirement,
   verifySignature,
   extractAndVerify,
   startSwapHelper

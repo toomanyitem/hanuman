@@ -9,7 +9,6 @@ const {
   resolveInstallTarget,
   downloadAsset,
   verifyBundleInfo,
-  parseDesignatedRequirement,
   verifySignature
 } = require('./update-install');
 
@@ -171,17 +170,6 @@ describeOnPosix('resolveInstallTarget', () => {
   });
 });
 
-describe('parseDesignatedRequirement', () => {
-  it('returns the requirement of a certificate-signed app', () => {
-    const output = 'designated => identifier "com.toomanyitem.hanuman" and certificate leaf = H"8c314ef8d2a8fa040e310fe6cbf7d19b6796b13d"\n';
-    expect(parseDesignatedRequirement(output)).toBe('identifier "com.toomanyitem.hanuman" and certificate leaf = H"8c314ef8d2a8fa040e310fe6cbf7d19b6796b13d"');
-  });
-
-  it('returns null for an ad-hoc app, whose implicit cdhash requirement changes every build', () => {
-    expect(parseDesignatedRequirement('# designated => cdhash H"8d0b0230aff943a825efae53b03b3c2624e6e3ae"\n')).toBeNull();
-  });
-});
-
 const describeOnMac = process.platform === 'darwin' ? describe : describe.skip;
 
 describeOnMac('verifySignature', () => {
@@ -192,9 +180,9 @@ describeOnMac('verifySignature', () => {
     return binary;
   };
 
-  it('accepts a validly signed download when the running copy is ad-hoc signed', async () => {
+  it('accepts a validly signed download', async () => {
     const dir = makeTempDir();
-    await expect(verifySignature({ appPath: signedCopy(dir, 'new'), runningAppPath: signedCopy(dir, 'running') })).resolves.toBeUndefined();
+    await expect(verifySignature(signedCopy(dir, 'new'))).resolves.toBeUndefined();
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -202,7 +190,7 @@ describeOnMac('verifySignature', () => {
     const dir = makeTempDir();
     const broken = signedCopy(dir, 'new');
     fs.appendFileSync(broken, 'tampered');
-    await expect(verifySignature({ appPath: broken, runningAppPath: signedCopy(dir, 'running') })).rejects.toThrow('signature is broken');
+    await expect(verifySignature(broken)).rejects.toThrow('signature is broken');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
