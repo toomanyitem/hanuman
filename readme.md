@@ -18,7 +18,7 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 - **ไม่มี telemetry และไม่มี analytics** แอปไม่ส่งข้อมูลออกนอกเครื่อง เว้นแต่คุณสั่ง (เช่น ส่ง request)
 - OAuth2 ผ่าน system browser รับ callback ที่ `http://127.0.0.1:9876/callback` ในเครื่อง ไม่ผ่าน server ภายนอก
 - ติดตั้งคู่กับ Bruno ได้ (ใช้ `hanuman://` และโฟลเดอร์ข้อมูลแยกกัน)
-- แจ้งเมื่อมีเวอร์ชันใหม่: เมนู **Help → Check for Updates…** หรือ **Preferences → General → Updates** (เช็กอัตโนมัติตอนเปิดแอปต้องเปิดเอง ค่าเริ่มต้นปิด) แอปจะถาม GitHub ว่า release ล่าสุดคือเวอร์ชันอะไร ไม่ส่งข้อมูลอื่น
+- แจ้งเมื่อมีเวอร์ชันใหม่: เมนู **Help → Check for Updates…** หรือ **Preferences → General → Updates** (เช็กอัตโนมัติตอนเปิดแอปต้องเปิดเอง ค่าเริ่มต้นปิด) แอปจะถาม GitHub ว่า release ล่าสุดคือเวอร์ชันอะไร ไม่ส่งข้อมูลอื่น บน macOS กด **Download and Install** ให้แอปดาวน์โหลด ตรวจ sha256 และติดตั้งเวอร์ชันใหม่ทับให้เอง (แอปเดิมย้ายไปถังขยะ) ไม่ต้องรัน `xattr` หรือกด Open Anyway อีก
 - **แผง Git ในแอป** ดูไฟล์ที่เปลี่ยน, diff แบบ visual, stage/commit, fetch/pull (merge หรือ rebase)/push, สลับและสร้าง branch, stash, แก้ merge conflict และเก็บ access token ต่อ host แบบเข้ารหัส
 - ฟีเจอร์ที่จะเพิ่มต่อไปดูได้ใน [เอกสารออกแบบ](docs/superpowers/specs/2026-10-20-hanuman-design.md): data-driven testing, secret manager, Socket.IO/MQTT, load test, Mock Server แบบเต็ม, Monitor และ API Docs แบบออฟไลน์
 
@@ -33,7 +33,7 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 
 ตอนนี้ release มีเฉพาะ **macOS และ Windows** ส่วน Linux, snap และ CLI ยังไม่มีไฟล์ติดตั้ง ถ้าต้องใช้ให้ build เองจาก source (ดูหัวข้อ [ออก release](#ออก-release))
 
-**แอปยังไม่ได้เซ็นโค้ด** จึงต้องทำเพิ่มครั้งแรก:
+**แอปไม่ได้เซ็นด้วย Apple Developer ID** จึงต้องทำเพิ่มตอนติดตั้งครั้งแรก (อัปเดตครั้งต่อไปบน macOS ใช้ปุ่ม **Download and Install** ในแอปได้เลย ไม่ต้องทำซ้ำ):
 - **macOS:** ลาก Hanuman จาก dmg ไปไว้ที่ Applications แล้วเลือกทำวิธีใดวิธีหนึ่งก่อนเปิดครั้งแรก ไม่อย่างนั้น macOS จะไม่ยอมเปิดแอปที่ไม่ได้เซ็นด้วย Apple Developer ID
   - **ไม่ใช้ Terminal:** เปิด Hanuman หนึ่งครั้ง พอขึ้นคำเตือนให้กด **Done** แล้วไปที่ **System Settings → Privacy & Security** เลื่อนลงไปที่ข้อความเรื่อง Hanuman กด **Open Anyway** ยืนยันด้วยรหัสผ่านหรือ Touch ID แล้วกด **Open Anyway** อีกครั้ง
   - **ใช้ Terminal:** รันคำสั่งนี้
@@ -41,6 +41,7 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
     xattr -d com.apple.quarantine /Applications/Hanuman.app
     ```
 - **Windows:** ถ้าขึ้น SmartScreen ให้กด **More info → Run anyway**
+- **macOS keychain:** หลังอัปเดตแต่ละครั้ง macOS จะถามหนึ่งครั้งว่า "Hanuman wants to use your confidential information stored in 'hanuman Safe Storage'" ให้ใส่รหัสผ่านเครื่องแล้วกด **Always Allow** (แอปไม่ได้เซ็นด้วย Apple Developer ID macOS จึงมองว่าแต่ละเวอร์ชันเป็นแอปใหม่)
 
 **CLI:** ยังไม่มีใน release build เองได้ด้วย `scripts/hanuman/release-local.sh <tag> cli` จะได้ `dist/release/<tag>/hanuman-cli_<version>.tgz` แล้วรัน `npm i -g ./dist/release/<tag>/hanuman-cli_<version>.tgz` จะได้คำสั่ง `hanuman` (และ `bru`) ใช้ได้ทุกระบบที่มี Node.js 22
 
@@ -100,7 +101,7 @@ scripts/hanuman/release-local.sh v0.1.2 linux win cli --upload
 - **No telemetry or analytics.** Nothing leaves your machine unless you ask (for example, by sending a request).
 - System-browser OAuth2 uses a local loopback callback (`http://127.0.0.1:9876/callback`) instead of a vendor-hosted redirect.
 - Installs side by side with Bruno (its own `hanuman://` protocol and data folder).
-- Update notices: **Help → Check for Updates…** or **Preferences → General → Updates** (the check at startup is opt-in). The app only asks GitHub for the latest release of `toomanyitem/hanuman`.
+- Update notices: **Help → Check for Updates…** or **Preferences → General → Updates** (the check at startup is opt-in). The app only asks GitHub for the latest release of `toomanyitem/hanuman`. On macOS, **Download and Install** downloads the new version, checks its sha256 and installs it over the current one (the old app goes to the Trash), with no `xattr` or Open Anyway step.
 - **A Git panel in the app:** changed files, visual diffs, stage and commit, fetch, pull (merge or rebase) and push, branches, stash, merge-conflict resolution, and encrypted per-host access tokens.
 - Roadmap: see the [design spec](docs/superpowers/specs/2026-10-20-hanuman-design.md) — data-driven testing, secret managers, Socket.IO/MQTT, load testing, a full mock server, monitors, and offline API docs.
 
@@ -109,7 +110,7 @@ Download from this repository's [Releases](https://github.com/toomanyitem/hanuma
 
 Releases currently ship **macOS and Windows**: macOS Intel and Apple Silicon (`hanuman_<version>_x64_mac.dmg` / `_arm64_mac.dmg`, or `.pkg`, `.zip`), and Windows as one installer for x64 and ARM64 (`hanuman_<version>_win.exe`) or a smaller one per architecture (`_x64_win.exe`, `_arm64_win.exe`). There are no Linux, snap or CLI downloads yet; build them from source (see [Releasing](#releasing)).
 
-Builds are **unsigned**:
+Builds are **not signed with an Apple Developer ID**, so the first install needs an extra step (later updates on macOS use **Download and Install** in the app):
 - **macOS:** drag Hanuman from the dmg to Applications, then do one of these before the first launch; otherwise macOS refuses to open an app that is not signed with an Apple Developer ID:
   - **Without Terminal:** open Hanuman once and choose **Done** on the warning, then go to **System Settings → Privacy & Security**, scroll to the message about Hanuman, choose **Open Anyway**, confirm with your password or Touch ID, and choose **Open Anyway** again.
   - **With Terminal:** run
@@ -117,6 +118,7 @@ Builds are **unsigned**:
     xattr -d com.apple.quarantine /Applications/Hanuman.app
     ```
 - **Windows:** on the SmartScreen prompt choose **More info → Run anyway**.
+- **macOS keychain:** after each update macOS asks once: "Hanuman wants to use your confidential information stored in 'hanuman Safe Storage'". Enter your password and choose **Always Allow**. The app isn't signed with an Apple Developer ID, so macOS treats each version as a new app.
 
 **CLI:** not in the releases yet. `scripts/hanuman/release-local.sh <tag> cli` builds `dist/release/<tag>/hanuman-cli_<version>.tgz`; install it with `npm i -g ./dist/release/<tag>/hanuman-cli_<version>.tgz` to get the `hanuman` (and `bru`) command on any system with Node.js 22.
 

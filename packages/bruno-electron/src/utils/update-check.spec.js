@@ -37,12 +37,14 @@ describe('checkForUpdates', () => {
   });
 
   it('reports a newer release', async () => {
-    const fetch = respond(200, { tag_name: 'v0.2.0', html_url: 'https://example.test/v0.2.0' });
+    const release = { tag_name: 'v0.2.0', html_url: 'https://example.test/v0.2.0' };
+    const fetch = respond(200, release);
 
     await expect(checkForUpdates({ currentVersion: '0.1.0', fetch })).resolves.toEqual({
       status: 'available',
       latestVersion: '0.2.0',
-      releaseUrl: 'https://example.test/v0.2.0'
+      releaseUrl: 'https://example.test/v0.2.0',
+      release
     });
   });
 
