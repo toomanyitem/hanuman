@@ -149,3 +149,30 @@ export const resolveIterationCount = (rows: T_IterationRow[], requested?: number
   }
   return requested;
 };
+
+// Where a runner goes after a request: the jump target, the end of the iteration
+// (`setNextRequest(null)` ends only the current iteration, as in postman-runtime), or the
+// next request; past the last request it starts the next iteration. A returned
+// `requestIndex` equal to `requestCount` means the run is over.
+export const nextRunnerPosition = ({
+  requestIndex,
+  requestCount,
+  iterationIndex,
+  iterationCount,
+  nextRequestIndex
+}: {
+  requestIndex: number;
+  requestCount: number;
+  iterationIndex: number;
+  iterationCount: number;
+  nextRequestIndex?: number | null;
+}): { requestIndex: number; iterationIndex: number } => {
+  const next = nextRequestIndex === null ? requestCount : nextRequestIndex ?? requestIndex + 1;
+  if (next < requestCount) {
+    return { requestIndex: next, iterationIndex };
+  }
+  if (iterationIndex + 1 < iterationCount) {
+    return { requestIndex: 0, iterationIndex: iterationIndex + 1 };
+  }
+  return { requestIndex: requestCount, iterationIndex };
+};

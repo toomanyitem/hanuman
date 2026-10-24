@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { parseIterationData, getIterationRow, resolveIterationCount } from './index';
+import { parseIterationData, getIterationRow, resolveIterationCount, nextRunnerPosition } from './index';
 
 describe('parseIterationData', () => {
   it('parses an Excel CSV with BOM, CRLF and Thai text', () => {
@@ -74,5 +74,28 @@ describe('resolveIterationCount', () => {
     expect(() => resolveIterationCount([{}], -1)).toThrow(/positive whole number/);
     expect(() => resolveIterationCount([{}], 1.5)).toThrow(/positive whole number/);
     expect(() => resolveIterationCount([{}], NaN)).toThrow(/positive whole number/);
+  });
+});
+
+describe('nextRunnerPosition', () => {
+  const base = { requestCount: 3, iterationCount: 2 };
+
+  it('moves to the next request, then to the next iteration, then ends the run', () => {
+    expect(nextRunnerPosition({ ...base, requestIndex: 0, iterationIndex: 0 })).toEqual({ requestIndex: 1, iterationIndex: 0 });
+    expect(nextRunnerPosition({ ...base, requestIndex: 2, iterationIndex: 0 })).toEqual({ requestIndex: 0, iterationIndex: 1 });
+    expect(nextRunnerPosition({ ...base, requestIndex: 2, iterationIndex: 1 })).toEqual({ requestIndex: 3, iterationIndex: 1 });
+  });
+
+  it('jumps within the iteration', () => {
+    expect(nextRunnerPosition({ ...base, requestIndex: 2, iterationIndex: 0, nextRequestIndex: 0 })).toEqual({ requestIndex: 0, iterationIndex: 0 });
+  });
+
+  it('ends only the current iteration on a null jump', () => {
+    expect(nextRunnerPosition({ ...base, requestIndex: 0, iterationIndex: 0, nextRequestIndex: null })).toEqual({ requestIndex: 0, iterationIndex: 1 });
+    expect(nextRunnerPosition({ ...base, requestIndex: 0, iterationIndex: 1, nextRequestIndex: null })).toEqual({ requestIndex: 3, iterationIndex: 1 });
+  });
+
+  it('ends a single-iteration run on a null jump, as before', () => {
+    expect(nextRunnerPosition({ requestCount: 3, iterationCount: 1, requestIndex: 0, iterationIndex: 0, nextRequestIndex: null })).toEqual({ requestIndex: 3, iterationIndex: 0 });
   });
 });
