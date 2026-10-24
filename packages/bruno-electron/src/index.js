@@ -51,6 +51,7 @@ const registerWorkspaceIpc = require('./ipc/workspace');
 const registerApiSpecIpc = require('./ipc/apiSpec');
 const registerGitIpc = require('./ipc/git');
 const registerGitPanelIpc = require('./ipc/git-panel');
+const registerDataDrivenIpc = require('./ipc/data-driven');
 const registerOpenAPISyncIpc = require('./ipc/openapi-sync');
 const registerMockServerIpc = require('./ipc/mock-server');
 const registerAiIpc = require('./ipc/ai');
@@ -543,6 +544,7 @@ app.on('ready', async () => {
   registerSystemMonitorIpc(mainWindow, systemMonitor);
   registerGitIpc(mainWindow);
   registerGitPanelIpc();
+  registerDataDrivenIpc(mainWindow);
   registerOpenAPISyncIpc(mainWindow);
   registerMockServerIpc(mainWindow);
   registerAiIpc(mainWindow);
