@@ -63,6 +63,13 @@ const simpleTranslations = {
   'bru.runner.skipRequest': 'pm.execution.skipRequest',
   'bru.runner.setNextRequest': 'pm.execution.setNextRequest',
 
+  // Iteration data
+  'bru.runner.iterationData.get': 'pm.iterationData.get',
+  'bru.runner.iterationData.has': 'pm.iterationData.has',
+  'bru.runner.iterationData.toObject': 'pm.iterationData.toObject',
+  'bru.runner.iteration': 'pm.info.iteration',
+  'bru.runner.iterationCount': 'pm.info.iterationCount',
+
   // Request helpers
   // Note: req.getUrl(), req.getMethod(), req.getHeaders(), req.getBody(), req.getName() are handled
   // in complexTransformations because they're function -> property conversions

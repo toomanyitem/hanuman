@@ -128,7 +128,7 @@ describe('Multiline Syntax Handling', () => {
     const translatedCode = translateCode(code);
     expect(translatedCode).toContain('// Stop execution');
     expect(translatedCode).toContain('// Continue to next request');
-    expect(translatedCode).toContain('bru.runner.stopExecution()');
+    expect(translatedCode).toContain('bru.runner.setNextRequest(null)');
     expect(translatedCode).toContain('bru.runner.setNextRequest("Next API Call")');
   });
 
@@ -282,7 +282,7 @@ describe('Multiline Syntax Handling', () => {
 
     // Check flow control
     expect(translatedCode).toContain('if (res.getStatus() === 401)');
-    expect(translatedCode).toContain('bru.runner.stopExecution()');
+    expect(translatedCode).toContain('bru.runner.setNextRequest(null)');
     expect(translatedCode).toContain('bru.runner.setNextRequest("Next API Call")');
   });
 
