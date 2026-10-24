@@ -5,7 +5,7 @@ const fs = require('node:fs/promises');
 const xmlbuilder = require('xmlbuilder');
 const {
   getRunnerSummary,
-  generateHtmlReport,
+  generateOfflineHtmlReport,
   buildJUnitReport,
   groupResultsByIteration
 } = require('@usebruno/common/runner');
@@ -181,7 +181,7 @@ const buildRunReport = (run, format, { version }) => {
     return xmlbuilder.create(buildJUnitReport(run.results, { hostname: os.hostname() })).end({ pretty: true });
   }
   if (format === 'html') {
-    return generateHtmlReport({
+    return generateOfflineHtmlReport({
       runnerResults: groupResultsByIteration(run.results, summary),
       version,
       environment: run.environmentName ?? null,

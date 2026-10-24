@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { generateHtmlReport, groupResultsByIteration } = require('@usebruno/common/runner');
+const { generateOfflineHtmlReport, groupResultsByIteration } = require('@usebruno/common/runner');
 const { CLI_VERSION } = require('../constants');
 
 const makeHtmlOutput = async (results, outputPath, runCompletionTime, environment = null) => {
@@ -12,9 +12,9 @@ const makeHtmlOutput = async (results, outputPath, runCompletionTime, environmen
     runnerResults = results;
   }
 
-  const htmlString = generateHtmlReport({
+  const htmlString = generateOfflineHtmlReport({
     runnerResults: runnerResults,
-    version: `usebruno v${CLI_VERSION}`,
+    version: `Hanuman CLI v${CLI_VERSION}`,
     environment: environment,
     runCompletionTime: runCompletionTime
   });

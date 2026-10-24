@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const xmlbuilder = require('xmlbuilder');
-const { generateHtmlReport, buildJUnitReport, groupResultsByIteration, getRunnerSummary } = require('@usebruno/common/runner');
+const { generateOfflineHtmlReport, buildJUnitReport, groupResultsByIteration, getRunnerSummary } = require('@usebruno/common/runner');
 const runHistory = require('../src/utils/run-history');
 
 const exchange = (overrides = {}) => ({
@@ -122,7 +122,7 @@ describe('run-history', () => {
 
     const summary = getRunnerSummary(results);
     expect(runHistory.buildRunReport(run, 'html', { version: 'v' })).toBe(
-      generateHtmlReport({ runnerResults: groupResultsByIteration(results, summary), version: 'v', environment: 'local', runCompletionTime: '2026-10-24T00:00:00.000Z' })
+      generateOfflineHtmlReport({ runnerResults: groupResultsByIteration(results, summary), version: 'v', environment: 'local', runCompletionTime: '2026-10-24T00:00:00.000Z' })
     );
     const junit = runHistory.buildRunReport(run, 'junit', { version: 'v' });
     expect(junit.replace(/timestamp="[^"]+"/g, '')).toBe(
