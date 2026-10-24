@@ -40,12 +40,15 @@
 2. **Known gap:** Postman's `pm.variables.get('col')` also reads data columns. The converter maps it to `bru.getVar`, which reads runtime variables only, so a converted script that reads a column through `pm.variables.get` gets `undefined`. `{{col}}` in requests and `pm.iterationData.get` work. Changing `bru.getVar` would change upstream semantics, so it stays a documented gap.
 3. Data file is chosen in the runner panel. The path is remembered per collection in `userData` (electron-store `iteration-data`), and the file is read by the main process at run start, so edits to the CSV are picked up without re-selecting.
 4. Iteration count input: empty means "number of rows" (or 1 without a file). The delay input that already exists is the delay between requests.
-5. History: the last **50 runs per collection** (§9.6) in `userData/run-history/<sha1 of collection path>/`. A response body over **1 MB** is stored as `[body not stored: N bytes]`. Headers are stored as sent, like the CLI default; Authorization values are already in the local sqlite store today, so this adds no new exposure. Exports include headers, same as `bru run` without `--reporter-skip-*`.
+5. History: the last **50 runs per collection** (§9.6) in `userData/run-history/<sha1 of collection path>/`, with a Clear history button. A response body over **1 MB** is stored as `[body not stored: N bytes]`. History outlives the app session (the sqlite exchange store is wiped at every start), so `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie` and header names matching token/secret/api-key/password are stored as `[redacted]`, and values of environment variables marked secret (collection and global) are replaced in URLs and bodies. **Known gap for Arm:** secrets that are not marked secret, inside URLs or bodies, are still stored. Exports come from history, so they carry the same redaction.
 6. Past runs open as the HTML report in the system browser (a temp file, `shell.openPath`), plus Export. There is no separate in-app viewer for old runs; the live run uses the existing runner results view.
 7. Iterations in the live view: an "Iteration 2/3" counter while running and an `#n` badge on each result row when there is more than one iteration. The existing All/Passed/Failed/Skipped filter stays as is.
-8. CLI JSON with iterations: each result gains `iterationIndex`; top-level `summary` stays overall. Without iterations nothing is added. JUnit suite names get ` (iteration n)` only when there is more than one iteration.
+8. One rule on both sides: results carry `iterationIndex` only when a run has **more than one iteration**; top-level `summary` stays overall. JUnit suite names get ` (iteration n)` under the same rule.
 9. The JUnit object builder moves to `@usebruno/common/runner` (`buildJUnitReport`), and the CLI's `reporters/junit.js` calls it. Both sides serialize with xmlbuilder, so the XML is identical. `bruno-electron` gets `xmlbuilder` as a dependency.
-10. A PR-only CI job runs `tests/data-driven` on Linux, like `git-panel-e2e`.
+10. `tests/data-driven` runs on every PR as a step of the existing `git-panel-e2e` job.
+11. **HTML report:** upstream's template loads Vue and naive-ui from unpkg.com, so it cannot open offline (spec requirement) and renders response HTML in iframes. A new single-file report `generateOfflineHtmlReport` (no external resources, CSP `default-src 'none'`, all values rendered as text) replaces it for **both** `bru run --reporter-html` and the app export. Upstream's `template.ts`/`generate-report.ts` stay untouched.
+12. **Converter behaviour change:** imported `pm.setNextRequest(null)` / `pm.execution.setNextRequest(null)` now become `bru.runner.setNextRequest(null)` (ends the current iteration, as in Postman) instead of upstream's `bru.runner.stopExecution()` (which would stop every remaining iteration). Upstream tests `exec-flow.test.js` and `multiline-syntax.test.js` were edited to match.
+13. Left alone on purpose (parity rule): electron/CLI `interpolate-string.js` (proxy, certs, gRPC OAuth2 token URLs) and the gRPC script runtime get no row values, because gRPC and WebSocket items are skipped in collection runs.
 
 ## Review Focus
 
@@ -61,18 +64,18 @@ New files:
 
 | File | Responsibility |
 |---|---|
-| `packages/bruno-common/src/runner/iteration-data/index.ts` | `parseIterationData`, `getIterationRow`, `resolveIterationCount` |
+| `packages/bruno-common/src/runner/iteration-data/index.ts` | `parseIterationData`, `getIterationRow`, `resolveIterationCount`, `nextRunnerPosition` (loop control shared by both runners) |
+| `packages/bruno-common/src/runner/reports/html/offline-report.ts` | `generateOfflineHtmlReport` (decision 11) |
 | `packages/bruno-common/src/runner/reports/junit/index.ts` | `buildJUnitReport(results)` → xmlbuilder object (moved from CLI) |
 | `packages/bruno-common/src/runner/reports/group-by-iteration.ts` | `groupResultsByIteration(results)` → `T_RunnerResults[]` |
 | `packages/bruno-js/src/iteration-data.js` | `createIterationApi(iteration)` → `{ iterationData, iteration, iterationCount }` |
 | `packages/bruno-electron/src/utils/iteration-data.js` | `loadIterationPlan({ dataFilePath, iterationCount })` (reads + validates the file) |
-| `packages/bruno-electron/src/ipc/network/iteration-control.js` | `nextRunnerPosition(state)` pure loop control |
 | `packages/bruno-electron/src/utils/run-history.js` | build CLI-shape results from renderer items + sqlite, save, list, prune, read |
 | `packages/bruno-electron/src/store/iteration-data.js` | last data file path per collection |
 | `packages/bruno-electron/src/ipc/data-driven.js` | `renderer:data-driven:*` handlers |
 | `packages/bruno-app/src/components/RunnerResults/IterationDataControls/` | file pick, row count, iteration count input |
 | `packages/bruno-app/src/components/RunnerResults/RunHistory/` | history list, open, export |
-| `packages/bruno-app/src/providers/App/useRunHistorySaver.js` | saves a run when its status turns `ended` |
+| `packages/bruno-app/src/hooks/useRunHistorySaver/`, `hooks/useIterationDataFile/` | saves a run when its status turns `ended`; the remembered data file |
 | `tests/data-driven/*`, `tests/utils/page/data-driven.ts` | e2e |
 
 Upstream files touched (plug-in points):
@@ -80,22 +83,22 @@ Upstream files touched (plug-in points):
 | File | Change |
 |---|---|
 | `bruno-common/src/runner/index.ts` | export the new modules |
-| `bruno-common/src/runner/reports/html/generate-report.ts` | pass `iterationData` through |
 | `bruno-js/src/bru.js` | `this.runner` gets the iteration API; `interpolate` adds the data layer |
 | `bruno-js/src/sandbox/quickjs/shims/bru.js` | bridge `iterationData`, `iteration`, `iterationCount` |
 | `bruno-js/src/interpolate-string.js`, `runtime/vars-runtime.js`, `runtime/assert-runtime.js`, `runtime/script-runtime.js`, `runtime/test-runtime.js` | add the data layer / pass `request.iteration` to `Bru` |
 | `bruno-electron/src/ipc/network/index.js` | options arg, iteration loop control, `iterationIndex` in events |
-| `bruno-electron/src/ipc/network/interpolate-vars.js`, `interpolate-string.js` | data layer |
+| `bruno-electron/src/ipc/network/interpolate-vars.js` | data layer |
 | `bruno-electron/src/index.js`, `package.json` | `registerDataDrivenIpc`, `xmlbuilder` dep |
+| `bruno-common/package.json` | `jsdom` devDependency (report rendering test) |
 | `bruno-cli/src/commands/run.js` | flags, iteration loop |
-| `bruno-cli/src/runner/interpolate-vars.js`, `interpolate-string.js`, `run-single-request.js` | data layer |
+| `bruno-cli/src/runner/interpolate-vars.js`, `run-single-request.js` | data layer |
 | `bruno-cli/src/reporters/junit.js`, `html.js` | call the shared builders |
 | `bruno-converters/src/utils/postman-to-bruno-translator.js`, `bruno-to-postman-translator.js`, `src/postman/postman-translations.js` | `pm.iterationData`, `pm.info.iteration*` |
 | `bruno-app/.../slices/collections/actions.js` | `runCollectionFolder(..., iterationOptions)` |
 | `bruno-app/.../slices/collections/index.js` | `iterationIndex` on queued items, `iterationCount` in info |
 | `bruno-app/src/components/RunnerResults/index.jsx` (+ result row) | render the two new components, pass options, `#n` badge |
 | `bruno-app/src/providers/App/index.js` | call `useRunHistorySaver()` |
-| `tests/utils/page/locators.ts`, `index.ts`, `.github/workflows/tests-linux.yml` | e2e wiring, CI job |
+| `tests/utils/page/index.ts`, `.github/workflows/tests-linux.yml` | e2e wiring, CI step |
 
 ---
 
@@ -184,7 +187,7 @@ Upstream files touched (plug-in points):
 ### Task 5: Electron runner iterations
 
 **Files:**
-- Create: `bruno-electron/src/utils/iteration-data.js` (+ `tests/iteration-data.spec.js`), `bruno-electron/src/ipc/network/iteration-control.js` (+ spec)
+- Create: `bruno-electron/src/utils/iteration-data.js` (+ `tests/iteration-data.spec.js`); `nextRunnerPosition` lives in `@usebruno/common` (Task 4) and both runners call it
 - Modify: `bruno-electron/src/ipc/network/index.js` (`renderer:run-collection-folder`)
 
 **Interfaces:**

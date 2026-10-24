@@ -161,7 +161,7 @@ jobs:
 
   git-panel-e2e:
     name: Git Panel E2E Tests (Linux)
-    # Hanuman: the full e2e suite is workflow_dispatch only, but the Git panel specs run on every PR
+    # Hanuman: the full e2e suite is workflow_dispatch only, but the Git panel and data-driven specs run on every PR
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -191,6 +191,9 @@ jobs:
 
       - name: Run Git Panel E2E Tests
         run: xvfb-run dbus-run-session -- npx playwright test tests/git-panel --project=default --workers=1
+
+      - name: Run Data-driven E2E Tests
+        run: xvfb-run dbus-run-session -- npx playwright test tests/data-driven --project=default --workers=1
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v6

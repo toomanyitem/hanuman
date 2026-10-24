@@ -91,3 +91,48 @@ npm run dev                      # เปิดแอปดูหน้าแร
 
 ### ถ้า upstream ปล่อย Git UI แบบ OSS
 ตามข้อ 9 รายการ 9 ของเอกสารออกแบบ ให้เปลี่ยนไปใช้ของ upstream แล้วลบไฟล์ใหม่ข้างบนออก
+
+## สิ่งที่เปลี่ยนจาก upstream (เฟส 2 — Data-driven testing และรายงาน)
+
+โค้ดส่วนใหญ่อยู่ในไฟล์ใหม่ upstream ถูกแก้แค่จุดเสียบในตารางนี้ ถ้า merge แล้ว conflict ให้รับของ upstream ก่อน แล้วใส่บรรทัดของเรากลับในจุดเดิม
+
+### ไฟล์ใหม่
+- `bruno-common/src/runner/iteration-data/` อ่าน CSV/JSON (`parseIterationData`), แถวของแต่ละรอบ (`getIterationRow`), จำนวนรอบ (`resolveIterationCount`) และตัวคุมลำดับ request/รอบของ runner ทั้งสองฝั่ง (`nextRunnerPosition`)
+- `bruno-common/src/runner/reports/junit/` ตัวสร้าง object ของ JUnit (ย้ายมาจาก `bruno-cli/src/reporters/junit.js`), `reports/group-by-iteration.ts`, `reports/html/offline-report.ts` รายงาน HTML ไฟล์เดียวที่เปิดออฟไลน์ได้ (ไม่มีไฟล์ภายนอก มี CSP `default-src 'none'`)
+- `bruno-js/src/iteration-data.js` API `bru.runner.iterationData` / `iteration` / `iterationCount`
+- `bruno-electron/src/utils/iteration-data.js`, `utils/run-history.js`, `store/iteration-data.js`, `ipc/data-driven.js` (`renderer:data-driven:*`)
+- `bruno-app/src/components/RunnerResults/IterationDataControls/`, `RunnerResults/RunHistory/`, `hooks/useIterationDataFile/`, `hooks/useRunHistorySaver/`
+- เทสต์: `bruno-cli/tests/integration/run-iterations.spec.js`, `tests/data-driven/*`, `tests/utils/page/data-driven.ts`
+
+### จุดเสียบในไฟล์ upstream
+| ไฟล์ | สิ่งที่เพิ่ม |
+|---|---|
+| `bruno-common/src/runner/index.ts` | export ฟังก์ชันใหม่ |
+| `bruno-common/package.json` | devDependency `jsdom` (เทสต์รายงาน HTML) |
+| `bruno-js/src/bru.js` | option `iteration`, `this.iterationVariables`, spread `createIterationApi` ใน `this.runner`, ชั้นตัวแปร iteration ใน `interpolate` |
+| `bruno-js/src/sandbox/quickjs/shims/bru.js` | bridge `bru.runner.iterationData/iteration/iterationCount` |
+| `bruno-js/src/interpolate-string.js`, `runtime/assert-runtime.js` | ชั้นตัวแปร `iterationVariables` |
+| `bruno-js/src/runtime/{script,test,vars,assert}-runtime.js` | ส่ง `iteration: request?.iteration` ให้ `new Bru(...)` |
+| `bruno-electron/src/ipc/network/index.js` | `renderer:run-collection-folder` รับ `iterationOptions`, `advanceRunner` ใช้ `nextRunnerPosition` (รวมทาง `continue` 3 จุด), `request.iteration`, `iterationIndex`/`iterationCount` ใน `eventData` และ `assertion-results`, `runRequest` ส่ง `item.iteration` ต่อ |
+| `bruno-electron/src/ipc/network/interpolate-vars.js`, `bruno-cli/src/runner/interpolate-vars.js` | ชั้น `iterationVariables` ต่อจาก environment |
+| `bruno-electron/src/index.js` | `registerDataDrivenIpc(mainWindow)` ต่อจาก `registerGitPanelIpc` |
+| `bruno-electron/package.json` | dependency `xmlbuilder` (export JUnit) |
+| `bruno-cli/src/commands/run.js` | `--iteration-data`, `--iteration-count`, loop ใช้ `nextRunnerPosition`, `iterationIndex` ในผล (เฉพาะเมื่อมีมากกว่า 1 รอบ) |
+| `bruno-cli/src/runner/run-single-request.js` | `request.iteration = item.iteration` และชั้นตัวแปรใน prompt check |
+| `bruno-cli/src/reporters/junit.js` | เรียก `buildJUnitReport` จาก common |
+| `bruno-cli/src/reporters/html.js` | ใช้ `generateOfflineHtmlReport` + `groupResultsByIteration` แทน template ของ upstream |
+| `bruno-cli/readme.md` | ตัวเลือกใหม่ในตาราง |
+| `bruno-converters/src/utils/postman-to-bruno-translator.js`, `src/postman/postman-translations.js`, `src/utils/bruno-to-postman-translator.js` | แปลง `pm.iterationData.*`, `pm.info.iteration(Count)` ทั้งสองทาง และ `pm.setNextRequest(null)` → `bru.runner.setNextRequest(null)` (upstream แปลงเป็น `stopExecution()`) แก้เทสต์ upstream `exec-flow.test.js`, `multiline-syntax.test.js` ตาม |
+| `bruno-app/.../slices/collections/actions.js` | `runCollectionFolder(..., iterationOptions)` |
+| `bruno-app/.../slices/collections/index.js` | `iterationIndex` บน runner item, `info.iterationCount` |
+| `bruno-app/src/components/RunnerResults/index.jsx` | `IterationDataControls`, `RunHistory`, ตัวนับ `Iteration n/m`, badge `#n`, key ของรายการเป็น `requestUid` |
+| `bruno-app/src/providers/App/index.js` | เรียก `useRunHistorySaver()` |
+| `tests/utils/page/index.ts` | re-export `data-driven` |
+| `.github/workflows/tests-linux.yml` | step `Run Data-driven E2E Tests` ใน job `git-panel-e2e` (รันบนทุก PR) |
+
+### ไม่ได้แก้ (ตั้งใจ)
+- `bruno-common/src/runner/reports/html/template.ts` และ `generate-report.ts` ของ upstream ยังอยู่ แต่ CLI และแอปไม่ใช้แล้ว (template นั้นโหลด Vue/naive-ui จาก unpkg.com)
+- `interpolate-string.js` ฝั่ง electron/CLI (ใช้กับ proxy, cert, token URL ของ OAuth2 ใน gRPC) และ gRPC script runtime ไม่ได้รับค่าจาก CSV เพราะ gRPC/WebSocket ถูกข้ามใน collection run อยู่แล้ว
+
+### ถ้า upstream ปล่อย data-driven แบบ OSS
+ตามข้อ 9 รายการ 9 ของเอกสารออกแบบ ให้ใช้ `iterationData` ของ upstream (stub อยู่ใน `bruno-common/src/runner/types/index.ts`) แทนของเรา แล้วลบไฟล์ใหม่ข้างบนที่ซ้ำกัน
