@@ -12,9 +12,8 @@ const replacements = {
   'pm\\.collectionVariables\\.unset\\(': 'bru.deleteCollectionVar(',
   'pm\\.collectionVariables\\.clear\\(': 'bru.deleteAllCollectionVars(',
   'pm\\.collectionVariables\\.toObject\\(': 'bru.getAllCollectionVars(',
-  // Only the actual null literal stops the runner; the string 'null' is a valid
-  // request name and falls through to setNextRequest.
-  'pm\\.setNextRequest\\(null\\)': 'bru.runner.stopExecution()',
+  // setNextRequest(null) ends the current iteration, as in Postman; the string 'null' is a request name.
+  'pm\\.setNextRequest\\(null\\)': 'bru.runner.setNextRequest(null)',
   'pm\\.setNextRequest\\(': 'bru.runner.setNextRequest(',
   'pm\\.test\\(': 'test(',
   'pm.response.to.have\\.status\\(': 'expect(res.getStatus()).to.equal(',
@@ -125,10 +124,15 @@ const replacements = {
   'postman\\.setEnvironmentVariable\\(': 'bru.setEnvVar(',
   'postman\\.getEnvironmentVariable\\(': 'bru.getEnvVar(',
   'postman\\.clearEnvironmentVariable\\(': 'bru.deleteEnvVar(',
+  'pm\\.iterationData\\.get\\(': 'bru.runner.iterationData.get(',
+  'pm\\.iterationData\\.has\\(': 'bru.runner.iterationData.has(',
+  'pm\\.iterationData\\.toObject\\(': 'bru.runner.iterationData.toObject(',
+  'pm\\.iterationData\\.toJSON\\(': 'bru.runner.iterationData.toObject(',
+  'pm\\.info\\.iterationCount': 'bru.runner.iterationCount',
+  'pm\\.info\\.iteration': 'bru.runner.iteration',
   'pm\\.execution\\.skipRequest\\(\\)': 'bru.runner.skipRequest()',
   'pm\\.execution\\.skipRequest': 'bru.runner.skipRequest',
-  // Only the actual null literal stops the runner; the string 'null' falls through to setNextRequest.
-  'pm\\.execution\\.setNextRequest\\(null\\)': 'bru.runner.stopExecution()',
+  'pm\\.execution\\.setNextRequest\\(null\\)': 'bru.runner.setNextRequest(null)',
   'pm\\.execution\\.setNextRequest\\(': 'bru.runner.setNextRequest(',
   // Cookie jar translations — order matters:
   // 1. Specific jar method patterns must come before the general jar() pattern,

@@ -1,6 +1,7 @@
 const { cleanJson, cleanCircularJson } = require('../../../utils');
 const { marshallToVm } = require('../utils');
 const { createPropertyListBridge } = require('../utils/property-list-bridge');
+const { createIterationApi } = require('../../../iteration-data');
 
 const addBruShimToContext = (vm, bru) => {
   const bruObject = vm.newObject();
@@ -185,6 +186,26 @@ const addBruShimToContext = (vm, bru) => {
   });
   vm.setProp(bruRunnerObject, 'setNextRequest', runnerSetNextRequest);
   runnerSetNextRequest.dispose();
+
+  const iterationApi = bru?.runner?.iterationData ? bru.runner : createIterationApi();
+  const iterationDataObject = vm.newObject();
+  const iterationDataMethods = {
+    get: (key) => iterationApi.iterationData.get(vm.dump(key)),
+    has: (key) => iterationApi.iterationData.has(vm.dump(key)),
+    toObject: () => iterationApi.iterationData.toObject()
+  };
+  Object.entries(iterationDataMethods).forEach(([name, method]) => {
+    const fn = vm.newFunction(name, (...args) => marshallToVm(method(...args), vm));
+    vm.setProp(iterationDataObject, name, fn);
+    fn.dispose();
+  });
+  vm.setProp(bruRunnerObject, 'iterationData', iterationDataObject);
+  iterationDataObject.dispose();
+  ['iteration', 'iterationCount'].forEach((name) => {
+    const value = vm.newNumber(iterationApi[name]);
+    vm.setProp(bruRunnerObject, name, value);
+    value.dispose();
+  });
 
   let visualize = vm.newFunction('visualize', function (htmlString) {
     bru.visualize(vm.dump(htmlString));

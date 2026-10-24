@@ -46,6 +46,9 @@ const { registerWsEventHandlers } = require('./ws-event-handlers');
 const { getCertsAndProxyConfig, buildCertsAndProxyConfig } = require('./cert-utils');
 const { easterEggResponse } = require('../../utils/woof');
 const { createRunnerExchangeEmitters } = require('./runner-exchange');
+const { getIterationRow, nextRunnerPosition } = require('@usebruno/common/runner');
+const { loadIterationPlan } = require('../../utils/iteration-data');
+const { iterationDataStore } = require('../../store/iteration-data');
 const { saveRunnerResponseBody } = require('../../services/runner-exchange');
 const { buildFormUrlEncodedPayload, isFormData, getMediaType, extractBoundaryFromContentType } = require('@usebruno/common').utils;
 
@@ -896,6 +899,7 @@ const registerNetworkIpc = (mainWindow) => {
 
     const abortController = new AbortController();
     const request = await prepareRequest(item, collection, abortController);
+    request.iteration = item.iteration;
     if (!runInBackground || parentUnresolvedVariables) {
       unresolvedVariables = trackUnresolvedVariables(request, parentUnresolvedVariables);
     }
@@ -1354,6 +1358,7 @@ const registerNetworkIpc = (mainWindow) => {
       ...globalEnvironmentVariables,
       ...collectionEnvironmentVars,
       ...collectionVariables,
+      ...request.iteration?.data,
       ...folderVariables,
       ...requestVariables,
       ...runtimeVariables,
@@ -1455,7 +1460,10 @@ const registerNetworkIpc = (mainWindow) => {
   ipcMain.handle('fetch-gql-schema', fetchGqlSchemaHandler);
 
   ipcMain.handle(
-    'renderer:run-collection-folder', async (event, folder, collection, environment, runtimeVariables, recursive, delay, tags, selectedRequestUids) => {
+    'renderer:run-collection-folder', async (event, folder, collection, environment, runtimeVariables, recursive, delay, tags, selectedRequestUids, iterationOptions) => {
+      const { rows: iterationRows, count: iterationCount } = await loadIterationPlan(iterationOptions, iterationDataStore.get(collection.pathname));
+      let iterationIndex = 0;
+      const getIteration = () => ({ index: iterationIndex, count: iterationCount, data: getIterationRow(iterationRows, iterationIndex) });
       const collectionUid = collection.uid;
       const collectionPath = collection.pathname;
       const folderUid = folder ? folder.uid : null;
@@ -1490,6 +1498,7 @@ const registerNetworkIpc = (mainWindow) => {
           }
           const _item = cloneDeep(findItemInCollectionByPathname(collection, itemPathname));
           if (_item) {
+            _item.iteration = getIteration();
             // WS/gRPC items live on separate IPC channels and can't be driven via
             // the HTTP runRequest. Record a Skipped row so the user sees feedback.
             if (_item.type === 'ws-request' || _item.type === 'grpc-request') {
@@ -1640,6 +1649,19 @@ const registerNetworkIpc = (mainWindow) => {
 
         let currentRequestIndex = 0;
         let nJumps = 0; // count the number of jumps to avoid infinite loops
+        const advanceRunner = (nextRequestIndex) => {
+          const previousIteration = iterationIndex;
+          ({ requestIndex: currentRequestIndex, iterationIndex } = nextRunnerPosition({
+            requestIndex: currentRequestIndex,
+            requestCount: folderRequests.length,
+            iterationIndex,
+            iterationCount,
+            nextRequestIndex
+          }));
+          if (iterationIndex !== previousIteration) {
+            nJumps = 0;
+          }
+        };
         while (currentRequestIndex < folderRequests.length) {
           // user requested to cancel runner
           if (abortController.signal.aborted) {
@@ -1656,7 +1678,9 @@ const registerNetworkIpc = (mainWindow) => {
           const eventData = {
             collectionUid,
             folderUid,
-            itemUid
+            itemUid,
+            iterationIndex,
+            iterationCount
           };
           currentRunnerEventData = eventData;
 
@@ -1697,11 +1721,12 @@ const registerNetworkIpc = (mainWindow) => {
               },
               ...eventData
             });
-            currentRequestIndex++;
+            advanceRunner();
             continue;
           }
 
           const request = await prepareRequest(item, collection, abortController);
+          request.iteration = getIteration();
           request.__bruno__executionMode = 'runner';
 
           const promptVars = await extractPromptVariablesForRequest({ request, collection, envVars, runtimeVariables, processEnvVars });
@@ -1720,7 +1745,7 @@ const registerNetworkIpc = (mainWindow) => {
               ...eventData
             });
 
-            currentRequestIndex++;
+            advanceRunner();
 
             continue;
           }
@@ -1814,7 +1839,7 @@ const registerNetworkIpc = (mainWindow) => {
                 },
                 ...eventData
               });
-              currentRequestIndex++;
+              advanceRunner();
               continue;
             }
 
@@ -2071,7 +2096,8 @@ const registerNetworkIpc = (mainWindow) => {
                 type: 'assertion-results',
                 assertionResults: results,
                 itemUid: item.uid,
-                collectionUid
+                collectionUid,
+                iterationIndex
               });
             }
 
@@ -2167,24 +2193,24 @@ const registerNetworkIpc = (mainWindow) => {
             break;
           }
 
+          let nextRequestIndex;
           if (nextRequestName !== undefined) {
             nJumps++;
             if (nJumps > 10000) {
               throw new Error('Too many jumps, possible infinite loop');
             }
             if (nextRequestName === null) {
-              break;
-            }
-            const nextRequestIdx = folderRequests.findIndex((request) => request.name === nextRequestName);
-            if (nextRequestIdx >= 0) {
-              currentRequestIndex = nextRequestIdx;
+              nextRequestIndex = null;
             } else {
-              console.error('Could not find request with name \'' + nextRequestName + '\'');
-              currentRequestIndex++;
+              const nextRequestIdx = folderRequests.findIndex((request) => request.name === nextRequestName);
+              if (nextRequestIdx >= 0) {
+                nextRequestIndex = nextRequestIdx;
+              } else {
+                console.error('Could not find request with name \'' + nextRequestName + '\'');
+              }
             }
-          } else {
-            currentRequestIndex++;
           }
+          advanceRunner(nextRequestIndex);
         }
 
         deleteCancelToken(cancelTokenUid);

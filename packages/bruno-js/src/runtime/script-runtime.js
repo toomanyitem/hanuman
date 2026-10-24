@@ -53,7 +53,8 @@ class ScriptRuntime {
       promptVariables,
       certsAndProxyConfig,
       requestUrl: request?.url,
-      onUnresolved: getUnresolvedVariableCollector(request)
+      onUnresolved: getUnresolvedVariableCollector(request),
+      iteration: request?.iteration
     });
     const req = new BrunoRequest(request);
 
@@ -203,7 +204,8 @@ class ScriptRuntime {
       promptVariables,
       certsAndProxyConfig,
       requestUrl: request?.url,
-      onUnresolved: getUnresolvedVariableCollector(request)
+      onUnresolved: getUnresolvedVariableCollector(request),
+      iteration: request?.iteration
     });
     const req = new BrunoRequest(request);
     const res = new BrunoResponse(response);

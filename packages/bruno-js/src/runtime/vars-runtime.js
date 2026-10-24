@@ -51,7 +51,8 @@ class VarsRuntime {
       promptVariables,
       certsAndProxyConfig,
       requestUrl: request?.url,
-      onUnresolved: getUnresolvedVariableCollector(request)
+      onUnresolved: getUnresolvedVariableCollector(request),
+      iteration: request?.iteration
     });
     const req = new BrunoRequest(request);
     const res = createResponseParser(response);

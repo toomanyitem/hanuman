@@ -46,6 +46,14 @@ const simpleTranslations = {
 
   // Info
   'pm.info.requestName': 'req.getName()',
+  'pm.info.iteration': 'bru.runner.iteration',
+  'pm.info.iterationCount': 'bru.runner.iterationCount',
+
+  // Iteration data
+  'pm.iterationData.get': 'bru.runner.iterationData.get',
+  'pm.iterationData.has': 'bru.runner.iterationData.has',
+  'pm.iterationData.toObject': 'bru.runner.iterationData.toObject',
+  'pm.iterationData.toJSON': 'bru.runner.iterationData.toObject',
 
   // Request headers
   'pm.request.headers.remove': 'req.deleteHeader',
@@ -267,21 +275,13 @@ const complexTransformations = [
     }
   })),
 
-  // Handle pm.setNextRequest(null) — stop the runner.
-  // Note: the string 'null' is a valid request name in Postman, so only the
-  // actual null literal triggers stopExecution(); 'null' falls through to setNextRequest.
+  // pm.setNextRequest(null) ends the current iteration in Postman, and so does
+  // bru.runner.setNextRequest(null); the argument passes through unchanged.
   {
     pattern: 'pm.setNextRequest',
     transform: (path, j) => {
       const callExpr = path.parent.value;
       const args = callExpr.arguments;
-
-      if (args[0] && args[0].type === 'Literal' && args[0].value === null) {
-        return j.callExpression(
-          j.identifier('bru.runner.stopExecution'),
-          []
-        );
-      }
 
       return j.callExpression(
         j.identifier('bru.runner.setNextRequest'),
@@ -298,17 +298,6 @@ const complexTransformations = [
 
       const args = callExpr.arguments;
 
-      // If argument is null or 'null', transform to bru.runner.stopExecution()
-      if (
-        args[0] && args[0].type === 'Literal' && (args[0].value === null)
-      ) {
-        return j.callExpression(
-          j.identifier('bru.runner.stopExecution'),
-          []
-        );
-      }
-
-      // Otherwise, keep as bru.runner.setNextRequest with the same argument
       return j.callExpression(
         j.identifier('bru.runner.setNextRequest'),
         args
@@ -595,7 +584,7 @@ complexTransformations.forEach((transform) => {
   complexTransformationsMap[transform.pattern] = transform;
 });
 
-const varInitsToReplace = new Set(['pm', 'postman', 'pm.request', 'pm.response', 'pm.test', 'pm.expect', 'pm.environment', 'pm.variables', 'pm.collectionVariables', 'pm.execution', 'pm.globals', 'pm.cookies']);
+const varInitsToReplace = new Set(['pm', 'postman', 'pm.request', 'pm.response', 'pm.test', 'pm.expect', 'pm.environment', 'pm.variables', 'pm.collectionVariables', 'pm.execution', 'pm.globals', 'pm.cookies', 'pm.iterationData']);
 
 /**
  * Process all transformations (both simple and complex) in the AST in a single pass
