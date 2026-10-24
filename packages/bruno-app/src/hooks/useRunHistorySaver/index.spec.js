@@ -2,7 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
 import React from 'react';
-import useRunHistorySaver, { buildSaveRunPayload } from './index';
+import useRunHistorySaver, { buildSaveRunPayload, waitForRunHistorySave } from './index';
 
 const collection = (status, runCompletionTime = '2026-10-24T00:00:00.000Z') => ({
   uid: 'c1',
@@ -80,5 +80,21 @@ describe('useRunHistorySaver', () => {
     store.dispatch(slice.actions.set(collection('ended', '2026-10-24T01:00:00.000Z')));
     hook.rerender();
     expect(window.ipcRenderer.invoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets callers wait for a save that is still reading the stored exchanges', async () => {
+    let finishSave;
+    window.ipcRenderer = { invoke: jest.fn(() => new Promise((resolve) => { finishSave = resolve; })) };
+    const { store, slice, hook } = renderWith(collection('started', undefined));
+    store.dispatch(slice.actions.set(collection('ended', '2026-10-24T02:00:00.000Z')));
+    hook.rerender();
+
+    let waited = false;
+    const wait = waitForRunHistorySave('c1').then(() => { waited = true; });
+    await Promise.resolve();
+    expect(waited).toBe(false);
+    finishSave({ id: 'x' });
+    await wait;
+    expect(waited).toBe(true);
   });
 });

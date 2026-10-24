@@ -123,7 +123,8 @@ npm run dev                      # เปิดแอปดูหน้าแร
 | `bruno-cli/src/reporters/html.js` | ใช้ `generateOfflineHtmlReport` + `groupResultsByIteration` แทน template ของ upstream |
 | `bruno-cli/readme.md` | ตัวเลือกใหม่ในตาราง |
 | `bruno-converters/src/utils/postman-to-bruno-translator.js`, `src/postman/postman-translations.js`, `src/utils/bruno-to-postman-translator.js` | แปลง `pm.iterationData.*`, `pm.info.iteration(Count)` ทั้งสองทาง และ `pm.setNextRequest(null)` → `bru.runner.setNextRequest(null)` (upstream แปลงเป็น `stopExecution()`) แก้เทสต์ upstream `exec-flow.test.js`, `multiline-syntax.test.js` ตาม |
-| `bruno-app/.../slices/collections/actions.js` | `runCollectionFolder(..., iterationOptions)` |
+| `bruno-app/.../slices/collections/actions.js` | `runCollectionFolder(..., iterationOptions)` และ toast แสดงข้อความจริงด้วย `formatIpcError` |
+| `bruno-app/src/hooks/useClearStoredRunnerExchanges/index.js` | รอ `waitForRunHistorySave` ก่อนล้าง exchange ใน sqlite |
 | `bruno-app/.../slices/collections/index.js` | `iterationIndex` บน runner item, `info.iterationCount` |
 | `bruno-app/src/components/RunnerResults/index.jsx` | `IterationDataControls`, `RunHistory`, ตัวนับ `Iteration n/m`, badge `#n`, key ของรายการเป็น `requestUid` |
 | `bruno-app/src/providers/App/index.js` | เรียก `useRunHistorySaver()` |

@@ -1,4 +1,3 @@
-const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { ipcMain, dialog, shell, app } = require('electron');
@@ -7,6 +6,8 @@ const { readRunnerExchange } = require('../services/runner-exchange');
 const { iterationDataStore } = require('../store/iteration-data');
 const { readIterationDataFile } = require('../utils/iteration-data');
 const runHistory = require('../utils/run-history');
+
+const toReportFileName = (collectionName, extension) => `${collectionName || 'run'}-report.${extension}`.replace(/[\\/:*?"<>|]/g, '_');
 
 const describeDataFile = async (dataFilePath) => {
   try {
@@ -96,7 +97,7 @@ const createDataDrivenHandlers = ({ getWindow, getUserDataPath, getAppVersion, g
       const run = await runHistory.readRun(historyDir(collectionPathname), id);
       const { canceled, filePath } = await dialog.showSaveDialog(getWindow(), {
         title: `Export ${reportFormat.label} report`,
-        defaultPath: `${run.collectionName || 'run'}-report.${reportFormat.extension}`,
+        defaultPath: toReportFileName(run.collectionName, reportFormat.extension),
         filters: [{ name: reportFormat.label, extensions: [reportFormat.extension] }]
       });
       if (canceled || !filePath) {
@@ -109,8 +110,11 @@ const createDataDrivenHandlers = ({ getWindow, getUserDataPath, getAppVersion, g
     'open-run': async ({ collectionPathname, id }) => {
       assertOpenCollection(collectionPathname);
       const run = await runHistory.readRun(historyDir(collectionPathname), id);
-      const reportDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hanuman-report-'));
-      const reportPath = path.join(reportDir, `${run.collectionName || 'run'}-report.html`.replace(/[\\/:*?"<>|]/g, '_'));
+      // One reused folder in userData, emptied each time, so opened reports (they hold response bodies) don't pile up.
+      const reportDir = path.join(getUserDataPath(), 'run-history', 'opened-report');
+      await fs.rm(reportDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      await fs.mkdir(reportDir, { recursive: true });
+      const reportPath = path.join(reportDir, toReportFileName(run.collectionName, 'html'));
       await fs.writeFile(reportPath, runHistory.buildRunReport(run, 'html', { version: `Hanuman v${getAppVersion()}` }));
       const error = await shell.openPath(reportPath);
       if (error) {

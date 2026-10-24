@@ -122,6 +122,25 @@ describe('run-history', () => {
     expect(run.results[0].request.data).toEqual({ password: '[redacted]' });
   });
 
+  it('masks only string values, so short secrets cannot corrupt the stored run', async () => {
+    const [result] = await runHistory.toCliResults([item()], async () => exchange({ responseTime: 120 }), { dataDriven: false });
+    const { id } = await runHistory.saveRun(dir, { collectionName: 'c', endedAt: 'e', iterationCount: 1, results: [result], secretValues: ['1', 'pass'] });
+    const run = await runHistory.readRun(dir, id);
+    expect(run.results[0].response.responseTime).toBe(120);
+    expect(run.results[0].status).toBe('[redacted]');
+    expect(run.summary.totalRequests).toBe(1);
+  });
+
+  it('prunes runs whose meta file was never written', async () => {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, '0000000000001-deadbeef.json'), '{}');
+    for (let i = 0; i < 2; i++) {
+      await runHistory.saveRun(dir, { collectionName: 'c', endedAt: 'e', iterationCount: 1, results: [] });
+    }
+    await runHistory.pruneRuns(dir, 2);
+    expect(fs.existsSync(path.join(dir, '0000000000001-deadbeef.json'))).toBe(false);
+  });
+
   it('clears the history of a collection', async () => {
     await runHistory.saveRun(dir, { collectionName: 'c', endedAt: 'e', iterationCount: 1, results: [] });
     await runHistory.clearRuns(dir);

@@ -113,7 +113,8 @@ const assertRunId = (id) => {
 const runFile = (dir, id) => path.join(dir, `${id}.json`);
 const metaFile = (dir, id) => path.join(dir, `${id}.meta.json`);
 
-const listRunIds = async (dir) => {
+// Newest first. With `suffix` '.json', also finds runs whose meta file was never written.
+const listRunIds = async (dir, suffix = '.meta.json') => {
   let files;
   try {
     files = await fs.readdir(dir);
@@ -121,27 +122,32 @@ const listRunIds = async (dir) => {
     if (error.code === 'ENOENT') return [];
     throw error;
   }
-  return files
-    .filter((file) => file.endsWith('.meta.json'))
-    .map((file) => file.slice(0, -'.meta.json'.length))
-    .filter((id) => RUN_ID_PATTERN.test(id))
-    .sort()
-    .reverse();
+  const ids = files
+    .filter((file) => file.endsWith(suffix))
+    .map((file) => file.slice(0, -suffix.length).replace(/\.meta$/, ''))
+    .filter((id) => RUN_ID_PATTERN.test(id));
+  return [...new Set(ids)].sort().reverse();
 };
 
 const pruneRuns = async (dir, keep = MAX_RUNS_PER_COLLECTION) => {
-  const stale = (await listRunIds(dir)).slice(keep);
+  const stale = (await listRunIds(dir, '.json')).slice(keep);
   const removeOptions = { force: true, maxRetries: 3, retryDelay: 100 };
   await Promise.all(stale.flatMap((id) => [fs.rm(runFile(dir, id), removeOptions), fs.rm(metaFile(dir, id), removeOptions)]));
 };
 
-// Replaces each secret value (as it appears inside JSON strings) with a marker.
-const maskSecretValues = (json, secretValues = []) =>
-  secretValues
-    .filter((value) => typeof value === 'string' && value.length > 0)
-    .map((value) => JSON.stringify(value).slice(1, -1))
-    .sort((a, b) => b.length - a.length)
-    .reduce((masked, escaped) => masked.split(escaped).join(REDACTED), json);
+// Replaces each secret value inside string values only (never keys, numbers or ids), longest first.
+const maskSecretValues = (value, secrets) => {
+  if (typeof value === 'string') {
+    return secrets.reduce((masked, secret) => masked.split(secret).join(REDACTED), value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => maskSecretValues(entry, secrets));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, maskSecretValues(entry, secrets)]));
+  }
+  return value;
+};
 
 const saveRun = async (dir, { collectionName, environmentName = null, endedAt, iterationCount, results, secretValues = [] }) => {
   const id = `${String(Date.now()).padStart(13, '0')}-${crypto.randomBytes(4).toString('hex')}`;
@@ -149,7 +155,8 @@ const saveRun = async (dir, { collectionName, environmentName = null, endedAt, i
   const meta = { id, collectionName, environmentName, endedAt, iterationCount, summary };
 
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(runFile(dir, id), maskSecretValues(JSON.stringify({ ...meta, results }), secretValues));
+  const secrets = secretValues.filter((value) => typeof value === 'string' && value.length > 0).sort((a, b) => b.length - a.length);
+  await fs.writeFile(runFile(dir, id), JSON.stringify({ ...meta, results: maskSecretValues(results, secrets) }));
   await fs.writeFile(metaFile(dir, id), JSON.stringify(meta));
   await pruneRuns(dir);
   return { id };

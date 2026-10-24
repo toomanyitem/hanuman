@@ -48,6 +48,7 @@ const { easterEggResponse } = require('../../utils/woof');
 const { createRunnerExchangeEmitters } = require('./runner-exchange');
 const { getIterationRow, nextRunnerPosition } = require('@usebruno/common/runner');
 const { loadIterationPlan } = require('../../utils/iteration-data');
+const { iterationDataStore } = require('../../store/iteration-data');
 const { saveRunnerResponseBody } = require('../../services/runner-exchange');
 const { buildFormUrlEncodedPayload, isFormData, getMediaType, extractBoundaryFromContentType } = require('@usebruno/common').utils;
 
@@ -1356,8 +1357,8 @@ const registerNetworkIpc = (mainWindow) => {
     const allVariables = {
       ...globalEnvironmentVariables,
       ...collectionEnvironmentVars,
-      ...request.iteration?.data,
       ...collectionVariables,
+      ...request.iteration?.data,
       ...folderVariables,
       ...requestVariables,
       ...runtimeVariables,
@@ -1460,7 +1461,7 @@ const registerNetworkIpc = (mainWindow) => {
 
   ipcMain.handle(
     'renderer:run-collection-folder', async (event, folder, collection, environment, runtimeVariables, recursive, delay, tags, selectedRequestUids, iterationOptions) => {
-      const { rows: iterationRows, count: iterationCount } = await loadIterationPlan(iterationOptions);
+      const { rows: iterationRows, count: iterationCount } = await loadIterationPlan(iterationOptions, iterationDataStore.get(collection.pathname));
       let iterationIndex = 0;
       const getIteration = () => ({ index: iterationIndex, count: iterationCount, data: getIterationRow(iterationRows, iterationIndex) });
       const collectionUid = collection.uid;

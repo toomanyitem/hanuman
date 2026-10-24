@@ -23,8 +23,12 @@ const readIterationDataFile = async (filePath) => {
   return parseIterationData(await fs.readFile(filePath, 'utf8'), filePath);
 };
 
-const loadIterationPlan = async (iterationOptions) => {
+// `allowedDataFilePath` is the file the user chose for this collection; a run never reads another one.
+const loadIterationPlan = async (iterationOptions, allowedDataFilePath = null) => {
   const { dataFilePath = null, iterationCount = null } = iterationOptions || {};
+  if (dataFilePath && dataFilePath !== allowedDataFilePath) {
+    throw new Error('Choose the data file in the runner before running');
+  }
   const rows = dataFilePath ? await readIterationDataFile(dataFilePath) : [];
   return { rows, count: resolveIterationCount(rows, iterationCount) };
 };

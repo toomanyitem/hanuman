@@ -12,6 +12,11 @@ import {
 
 const SETTLED_STATUSES = ['completed', 'error', 'skipped'];
 
+// Saves still reading this collection's stored exchanges; clearing them first would empty the saved run.
+const pendingSaves = new Map();
+
+export const waitForRunHistorySave = (collectionUid) => pendingSaves.get(collectionUid) || Promise.resolve();
+
 // Values of the variables marked secret in the active collection and global environments,
 // so the main process can mask them in URLs and bodies before writing history.
 const getSecretValues = (collection, globalEnvironmentState) => {
@@ -66,9 +71,13 @@ const useRunHistorySaver = () => {
       const runKey = `${info.cancelTokenUid}:${info.runCompletionTime}`;
       if (savedRunsRef.current.get(collection.uid) === runKey) return;
       savedRunsRef.current.set(collection.uid, runKey);
-      window.ipcRenderer
+      const save = window.ipcRenderer
         .invoke('renderer:data-driven:save-run', buildSaveRunPayload(collection, globalEnvironmentState))
-        .catch((error) => console.error('Failed to save the run to history', error));
+        .catch((error) => console.error('Failed to save the run to history', error))
+        .finally(() => {
+          if (pendingSaves.get(collection.uid) === save) pendingSaves.delete(collection.uid);
+        });
+      pendingSaves.set(collection.uid, save);
     });
   }, [collections, globalEnvironmentState]);
 };

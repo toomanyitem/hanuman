@@ -48,7 +48,8 @@
 10. `tests/data-driven` runs on every PR as a step of the existing `git-panel-e2e` job.
 11. **HTML report:** upstream's template loads Vue and naive-ui from unpkg.com, so it cannot open offline (spec requirement) and renders response HTML in iframes. A new single-file report `generateOfflineHtmlReport` (no external resources, CSP `default-src 'none'`, all values rendered as text) replaces it for **both** `bru run --reporter-html` and the app export. Upstream's `template.ts`/`generate-report.ts` stay untouched.
 12. **Converter behaviour change:** imported `pm.setNextRequest(null)` / `pm.execution.setNextRequest(null)` now become `bru.runner.setNextRequest(null)` (ends the current iteration, as in Postman) instead of upstream's `bru.runner.stopExecution()` (which would stop every remaining iteration). Upstream tests `exec-flow.test.js` and `multiline-syntax.test.js` were edited to match.
-13. Left alone on purpose (parity rule): electron/CLI `interpolate-string.js` (proxy, certs, gRPC OAuth2 token URLs) and the gRPC script runtime get no row values, because gRPC and WebSocket items are skipped in collection runs.
+13. When `--bail` or `stopExecution` halts a CLI run, skipped placeholder rows cover only the rest of that iteration, not later iterations (the app has never created skipped rows for a halt). The app runner only reads the data file the user chose for that collection (main checks it against the remembered path).
+14. Left alone on purpose (parity rule): electron/CLI `interpolate-string.js` (proxy, certs, gRPC OAuth2 token URLs) and the gRPC script runtime get no row values, because gRPC and WebSocket items are skipped in collection runs.
 
 ## Review Focus
 

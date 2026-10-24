@@ -21,17 +21,23 @@ describe('loadIterationPlan', () => {
   });
 
   it('reads the rows and defaults the count to the row count', async () => {
-    const plan = await loadIterationPlan({ dataFilePath: path.join(dir, 'users.csv') });
+    const plan = await loadIterationPlan({ dataFilePath: path.join(dir, 'users.csv') }, path.join(dir, 'users.csv'));
     expect(plan).toEqual({ rows: [{ name: 'a' }, { name: 'b' }, { name: 'c' }], count: 3 });
-    expect((await loadIterationPlan({ dataFilePath: path.join(dir, 'users.csv'), iterationCount: 5 })).count).toBe(5);
+    expect((await loadIterationPlan({ dataFilePath: path.join(dir, 'users.csv'), iterationCount: 5 }, path.join(dir, 'users.csv'))).count).toBe(5);
   });
 
   it('rejects missing files, directories, relative paths and other extensions', async () => {
-    await expect(loadIterationPlan({ dataFilePath: path.join(dir, 'missing.csv') })).rejects.toThrow(/not found/);
-    await expect(loadIterationPlan({ dataFilePath: dir })).rejects.toThrow(/not a file/);
-    await expect(loadIterationPlan({ dataFilePath: 'users.csv' })).rejects.toThrow(/absolute/);
+    const load = (dataFilePath) => loadIterationPlan({ dataFilePath }, dataFilePath);
+    await expect(load(path.join(dir, 'missing.csv'))).rejects.toThrow(/not found/);
+    await expect(load(dir)).rejects.toThrow(/not a file/);
+    await expect(load('users.csv')).rejects.toThrow(/absolute/);
     fs.writeFileSync(path.join(dir, 'users.txt'), 'name\na\n');
-    await expect(loadIterationPlan({ dataFilePath: path.join(dir, 'users.txt') })).rejects.toThrow(/\.csv or \.json/);
+    await expect(load(path.join(dir, 'users.txt'))).rejects.toThrow(/\.csv or \.json/);
+  });
+
+  it('reads only the data file chosen for the collection', async () => {
+    await expect(loadIterationPlan({ dataFilePath: path.join(dir, 'users.csv') }, null)).rejects.toThrow(/Choose the data file/);
+    await expect(loadIterationPlan({ dataFilePath: path.join(dir, 'users.csv') }, path.join(dir, 'other.csv'))).rejects.toThrow(/Choose the data file/);
   });
 
   it('rejects a bad count', async () => {

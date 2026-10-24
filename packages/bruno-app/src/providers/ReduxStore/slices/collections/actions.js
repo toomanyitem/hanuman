@@ -11,6 +11,7 @@ import trim from 'lodash/trim';
 import path, { normalizePath, isPathExternalToBasePath } from 'utils/common/path';
 import { insertTaskIntoQueue } from 'providers/ReduxStore/slices/app';
 import toast from 'react-hot-toast';
+import { formatIpcError } from 'utils/common/error';
 import IpcErrorModal from 'components/Errors/IpcErrorModal/index';
 import SaveFileErrorModal from 'components/Errors/SaveFileErrorModal/index';
 import {
@@ -779,7 +780,7 @@ export const runCollectionFolder
         )
         .then(resolve)
         .catch((err) => {
-          toast.error(get(err, 'error.message') || 'Something went wrong!');
+          toast.error(get(err, 'error.message') || formatIpcError(err) || 'Something went wrong!');
           reject(err);
         });
     });
