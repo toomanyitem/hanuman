@@ -105,6 +105,23 @@ describe('run-history', () => {
     expect(result.response.headers).toEqual({ 'Set-Cookie': '[redacted]', 'content-type': 'text/plain' });
   });
 
+  it('masks secret environment values in URLs and bodies', async () => {
+    const results = await runHistory.toCliResults(
+      [item()],
+      async () => ({
+        requestSent: { method: 'POST', url: 'http://x/?key=s3cr3t', headers: {}, data: { password: 'p"w' } },
+        responseReceived: { status: 200, headers: {}, data: 'token s3cr3t', size: 12 }
+      }),
+      { dataDriven: false }
+    );
+    const { id } = await runHistory.saveRun(dir, { collectionName: 'c', endedAt: 'e', iterationCount: 1, results, secretValues: ['s3cr3t', 'p"w'] });
+    const stored = fs.readFileSync(path.join(dir, `${id}.json`), 'utf8');
+    expect(stored).not.toContain('s3cr3t');
+    const run = await runHistory.readRun(dir, id);
+    expect(run.results[0].request.url).toBe('http://x/?key=[redacted]');
+    expect(run.results[0].request.data).toEqual({ password: '[redacted]' });
+  });
+
   it('clears the history of a collection', async () => {
     await runHistory.saveRun(dir, { collectionName: 'c', endedAt: 'e', iterationCount: 1, results: [] });
     await runHistory.clearRuns(dir);

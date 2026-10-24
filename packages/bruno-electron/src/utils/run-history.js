@@ -135,13 +135,21 @@ const pruneRuns = async (dir, keep = MAX_RUNS_PER_COLLECTION) => {
   await Promise.all(stale.flatMap((id) => [fs.rm(runFile(dir, id), removeOptions), fs.rm(metaFile(dir, id), removeOptions)]));
 };
 
-const saveRun = async (dir, { collectionName, environmentName = null, endedAt, iterationCount, results }) => {
+// Replaces each secret value (as it appears inside JSON strings) with a marker.
+const maskSecretValues = (json, secretValues = []) =>
+  secretValues
+    .filter((value) => typeof value === 'string' && value.length > 0)
+    .map((value) => JSON.stringify(value).slice(1, -1))
+    .sort((a, b) => b.length - a.length)
+    .reduce((masked, escaped) => masked.split(escaped).join(REDACTED), json);
+
+const saveRun = async (dir, { collectionName, environmentName = null, endedAt, iterationCount, results, secretValues = [] }) => {
   const id = `${String(Date.now()).padStart(13, '0')}-${crypto.randomBytes(4).toString('hex')}`;
   const summary = getRunnerSummary(results);
   const meta = { id, collectionName, environmentName, endedAt, iterationCount, summary };
 
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(runFile(dir, id), JSON.stringify({ ...meta, results }));
+  await fs.writeFile(runFile(dir, id), maskSecretValues(JSON.stringify({ ...meta, results }), secretValues));
   await fs.writeFile(metaFile(dir, id), JSON.stringify(meta));
   await pruneRuns(dir);
   return { id };

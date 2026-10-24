@@ -59,7 +59,7 @@ const createDataDrivenHandlers = ({ getWindow, getUserDataPath, getAppVersion, g
       return null;
     },
 
-    'save-run': async ({ collectionPathname, collectionName, environmentName, endedAt, iterationCount, items }) => {
+    'save-run': async ({ collectionPathname, collectionName, environmentName, endedAt, iterationCount, items, secretValues }) => {
       assertOpenCollection(collectionPathname);
       if (!Array.isArray(items)) {
         throw new Error('items must be an array');
@@ -71,7 +71,8 @@ const createDataDrivenHandlers = ({ getWindow, getUserDataPath, getAppVersion, g
         environmentName,
         endedAt,
         iterationCount,
-        results
+        results,
+        secretValues: Array.isArray(secretValues) ? secretValues : []
       });
     },
 

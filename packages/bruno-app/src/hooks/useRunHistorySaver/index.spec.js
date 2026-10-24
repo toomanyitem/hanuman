@@ -9,7 +9,7 @@ const collection = (status, runCompletionTime = '2026-10-24T00:00:00.000Z') => (
   name: 'Users',
   pathname: '/work/users',
   activeEnvironmentUid: 'e1',
-  environments: [{ uid: 'e1', name: 'local', variables: [] }],
+  environments: [{ uid: 'e1', name: 'local', variables: [{ name: 'token', value: 's3cr3t', secret: true, enabled: true }, { name: 'host', value: 'localhost', enabled: true }] }],
   items: [{ uid: 'r1', name: 'Get user', type: 'http-request', pathname: '/work/users/people/Get user.bru' }],
   runnerResult: {
     info: { status, runCompletionTime, cancelTokenUid: 't1', iterationCount: 2 },
@@ -23,7 +23,12 @@ const collection = (status, runCompletionTime = '2026-10-24T00:00:00.000Z') => (
 
 describe('buildSaveRunPayload', () => {
   it('maps settled runner items to the save-run shape', () => {
-    expect(buildSaveRunPayload(collection('ended'))).toEqual({
+    const globalEnvironmentState = {
+      activeGlobalEnvironmentUid: 'g1',
+      globalEnvironments: [{ uid: 'g1', name: 'g', variables: [{ name: 'apiKey', value: 'k-123', secret: true, enabled: true }] }]
+    };
+    expect(buildSaveRunPayload(collection('ended'), globalEnvironmentState)).toEqual({
+      secretValues: ['s3cr3t', 'k-123'],
       collectionPathname: '/work/users',
       collectionName: 'Users',
       environmentName: 'local',
@@ -50,7 +55,8 @@ describe('useRunHistorySaver', () => {
       initialState: { collections: [initial] },
       reducers: { set: (state, action) => ({ collections: [action.payload] }) }
     });
-    const store = configureStore({ reducer: { collections: slice.reducer } });
+    const globalEnvironments = () => ({ globalEnvironments: [], activeGlobalEnvironmentUid: null });
+    const store = configureStore({ reducer: { collections: slice.reducer, globalEnvironments } });
     const wrapper = ({ children }) => React.createElement(Provider, { store }, children);
     const hook = renderHook(() => useRunHistorySaver(), { wrapper });
     return { store, slice, hook };

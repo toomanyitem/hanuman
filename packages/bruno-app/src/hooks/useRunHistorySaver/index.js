@@ -1,13 +1,32 @@
 import { useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import path from 'utils/common/path';
-import { findItemInCollection, findEnvironmentInCollection } from 'utils/collections';
+import {
+  findItemInCollection,
+  findEnvironmentInCollection,
+  getEnvironmentVariables,
+  getEnvironmentVariablesMasked,
+  getGlobalEnvironmentVariables,
+  getGlobalEnvironmentVariablesMasked
+} from 'utils/collections';
 
 const SETTLED_STATUSES = ['completed', 'error', 'skipped'];
 
-export const buildSaveRunPayload = (collection) => {
+// Values of the variables marked secret in the active collection and global environments,
+// so the main process can mask them in URLs and bodies before writing history.
+const getSecretValues = (collection, globalEnvironmentState) => {
+  const environmentValues = getEnvironmentVariables(collection);
+  const globalValues = getGlobalEnvironmentVariables(globalEnvironmentState);
+  return [
+    ...getEnvironmentVariablesMasked(collection).map((name) => environmentValues[name]),
+    ...getGlobalEnvironmentVariablesMasked(globalEnvironmentState).map((name) => globalValues[name])
+  ].filter((value) => typeof value === 'string' && value.length > 0);
+};
+
+export const buildSaveRunPayload = (collection, globalEnvironmentState = {}) => {
   const { info, items } = collection.runnerResult;
   return {
+    secretValues: getSecretValues(collection, globalEnvironmentState),
     collectionPathname: collection.pathname,
     collectionName: collection.name,
     environmentName: findEnvironmentInCollection(collection, collection.activeEnvironmentUid)?.name ?? null,
@@ -37,6 +56,7 @@ export const buildSaveRunPayload = (collection) => {
 // Saves every finished collection run to the local run history, once per run.
 const useRunHistorySaver = () => {
   const collections = useSelector((state) => state.collections.collections);
+  const globalEnvironmentState = useSelector((state) => state.globalEnvironments);
   const savedRunsRef = useRef(new Map());
 
   useEffect(() => {
@@ -47,10 +67,10 @@ const useRunHistorySaver = () => {
       if (savedRunsRef.current.get(collection.uid) === runKey) return;
       savedRunsRef.current.set(collection.uid, runKey);
       window.ipcRenderer
-        .invoke('renderer:data-driven:save-run', buildSaveRunPayload(collection))
+        .invoke('renderer:data-driven:save-run', buildSaveRunPayload(collection, globalEnvironmentState))
         .catch((error) => console.error('Failed to save the run to history', error));
     });
-  }, [collections]);
+  }, [collections, globalEnvironmentState]);
 };
 
 export default useRunHistorySaver;
