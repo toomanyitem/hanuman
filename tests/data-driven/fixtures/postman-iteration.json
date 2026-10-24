@@ -1,0 +1,35 @@
+{
+  "info": {
+    "name": "Postman Iteration Data",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Echo row",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8081/query?name={{name}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8081",
+          "path": ["query"],
+          "query": [{ "key": "name", "value": "{{name}}" }]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('row ' + (pm.info.iteration + 1) + ' of ' + pm.info.iterationCount, function () {",
+              "  pm.expect(pm.response.json().name).to.eql(pm.iterationData.get('name'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
