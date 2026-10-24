@@ -26,6 +26,22 @@ const getRunHistoryDir = (userDataPath, collectionPathname) =>
 
 const stripExtension = (filename = '') => filename.replace(/\.[^/.]+$/, '');
 
+// History outlives the app session (the sqlite exchange store is wiped at startup), so credentials in
+// headers are not kept. Secrets inside URLs and bodies are not detected.
+const SENSITIVE_HEADER_NAMES = new Set(['authorization', 'proxy-authorization', 'cookie', 'set-cookie']);
+const SENSITIVE_HEADER_PATTERN = /token|secret|api[-_]?key|password/i;
+const REDACTED = '[redacted]';
+
+const redactHeaders = (headers) => {
+  if (!headers || typeof headers !== 'object') return headers ?? null;
+  return Object.fromEntries(
+    Object.entries(headers).map(([name, value]) => [
+      name,
+      SENSITIVE_HEADER_NAMES.has(name.toLowerCase()) || SENSITIVE_HEADER_PATTERN.test(name) ? REDACTED : value
+    ])
+  );
+};
+
 const getBodySize = (response) => {
   if (Number.isFinite(response.size)) return response.size;
   return response.dataBuffer ? Buffer.byteLength(response.dataBuffer, 'base64') : 0;
@@ -49,7 +65,7 @@ const toCliResult = (item, exchange, { dataDriven }) => {
     request: {
       method: sent.method ?? null,
       url: sent.url ?? null,
-      headers: sent.headers ?? null,
+      headers: redactHeaders(sent.headers),
       data: sent.data ?? null
     },
     response: skipped
@@ -57,7 +73,7 @@ const toCliResult = (item, exchange, { dataDriven }) => {
       : {
           status: received.status ?? (item.status === 'error' ? 'error' : null),
           statusText: received.statusText ?? null,
-          headers: received.headers ?? null,
+          headers: redactHeaders(received.headers),
           data: getStoredBody(received),
           url: received.url ?? sent.url ?? null,
           responseTime,
@@ -119,10 +135,10 @@ const pruneRuns = async (dir, keep = MAX_RUNS_PER_COLLECTION) => {
   await Promise.all(stale.flatMap((id) => [fs.rm(runFile(dir, id), removeOptions), fs.rm(metaFile(dir, id), removeOptions)]));
 };
 
-const saveRun = async (dir, { collectionName, environmentName = null, startedAt, endedAt, iterationCount, results }) => {
+const saveRun = async (dir, { collectionName, environmentName = null, endedAt, iterationCount, results }) => {
   const id = `${String(Date.now()).padStart(13, '0')}-${crypto.randomBytes(4).toString('hex')}`;
   const summary = getRunnerSummary(results);
-  const meta = { id, collectionName, environmentName, startedAt, endedAt, iterationCount, summary };
+  const meta = { id, collectionName, environmentName, endedAt, iterationCount, summary };
 
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(runFile(dir, id), JSON.stringify({ ...meta, results }));
@@ -130,6 +146,8 @@ const saveRun = async (dir, { collectionName, environmentName = null, startedAt,
   await pruneRuns(dir);
   return { id };
 };
+
+const clearRuns = (dir) => fs.rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 
 const listRuns = async (dir) => {
   const runs = [];
@@ -182,6 +200,7 @@ module.exports = {
   toCliResults,
   saveRun,
   listRuns,
+  clearRuns,
   readRun,
   pruneRuns,
   buildRunReport

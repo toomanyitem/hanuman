@@ -81,7 +81,7 @@ describe('run-history', () => {
 
     const ids = [];
     for (let i = 0; i < 52; i++) {
-      ids.push((await runHistory.saveRun(dir, { collectionName: 'c', startedAt: 's', endedAt: 'e', iterationCount: 1, results: [big] })).id);
+      ids.push((await runHistory.saveRun(dir, { collectionName: 'c', endedAt: 'e', iterationCount: 1, results: [big] })).id);
       await new Promise((resolve) => setTimeout(resolve, 2));
     }
     const runs = await runHistory.listRuns(dir);
@@ -92,13 +92,32 @@ describe('run-history', () => {
     expect(fs.readdirSync(dir)).toHaveLength(100);
   });
 
+  it('redacts credential headers before they are stored', async () => {
+    const [result] = await runHistory.toCliResults(
+      [item()],
+      async () => ({
+        requestSent: { method: 'GET', url: 'http://x/', headers: { 'Authorization': 'Bearer abc', 'X-Api-Key': 'k', 'x-auth-token': 't', 'accept': '*/*' } },
+        responseReceived: { status: 200, headers: { 'Set-Cookie': 'sid=1', 'content-type': 'text/plain' }, data: 'ok', size: 2 }
+      }),
+      { dataDriven: false }
+    );
+    expect(result.request.headers).toEqual({ 'Authorization': '[redacted]', 'X-Api-Key': '[redacted]', 'x-auth-token': '[redacted]', 'accept': '*/*' });
+    expect(result.response.headers).toEqual({ 'Set-Cookie': '[redacted]', 'content-type': 'text/plain' });
+  });
+
+  it('clears the history of a collection', async () => {
+    await runHistory.saveRun(dir, { collectionName: 'c', endedAt: 'e', iterationCount: 1, results: [] });
+    await runHistory.clearRuns(dir);
+    expect(await runHistory.listRuns(dir)).toEqual([]);
+  });
+
   it('rejects run ids that are not ours', async () => {
     await expect(runHistory.readRun(dir, '../x')).rejects.toThrow(/Invalid run id/);
   });
 
   it('exports with the same builders as bru run', async () => {
     const results = await runHistory.toCliResults([item(), item({ iterationIndex: 1 })], async () => exchange(), { dataDriven: true });
-    const { id } = await runHistory.saveRun(dir, { collectionName: 'c', environmentName: 'local', startedAt: 's', endedAt: '2026-10-24T00:00:00.000Z', iterationCount: 2, results });
+    const { id } = await runHistory.saveRun(dir, { collectionName: 'c', environmentName: 'local', endedAt: '2026-10-24T00:00:00.000Z', iterationCount: 2, results });
     const run = await runHistory.readRun(dir, id);
 
     const summary = getRunnerSummary(results);

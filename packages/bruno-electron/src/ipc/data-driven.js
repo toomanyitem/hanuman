@@ -59,20 +59,26 @@ const createDataDrivenHandlers = ({ getWindow, getUserDataPath, getAppVersion, g
       return null;
     },
 
-    'save-run': async ({ collectionPathname, collectionName, environmentName, startedAt, endedAt, iterationCount, dataDriven, items }) => {
+    'save-run': async ({ collectionPathname, collectionName, environmentName, endedAt, iterationCount, items }) => {
       assertOpenCollection(collectionPathname);
       if (!Array.isArray(items)) {
         throw new Error('items must be an array');
       }
-      const results = await runHistory.toCliResults(items, readExchange, { dataDriven: dataDriven === true });
+      // Same rule as bru run: results carry iterationIndex only when there is more than one iteration.
+      const results = await runHistory.toCliResults(items, readExchange, { dataDriven: iterationCount > 1 });
       return runHistory.saveRun(historyDir(collectionPathname), {
         collectionName,
         environmentName,
-        startedAt,
         endedAt,
         iterationCount,
         results
       });
+    },
+
+    'clear-runs': async ({ collectionPathname }) => {
+      assertOpenCollection(collectionPathname);
+      await runHistory.clearRuns(historyDir(collectionPathname));
+      return [];
     },
 
     'list-runs': async ({ collectionPathname }) => {
@@ -102,7 +108,8 @@ const createDataDrivenHandlers = ({ getWindow, getUserDataPath, getAppVersion, g
     'open-run': async ({ collectionPathname, id }) => {
       assertOpenCollection(collectionPathname);
       const run = await runHistory.readRun(historyDir(collectionPathname), id);
-      const reportPath = path.join(os.tmpdir(), `hanuman-report-${id}.html`);
+      const reportDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hanuman-report-'));
+      const reportPath = path.join(reportDir, `${run.collectionName || 'run'}-report.html`.replace(/[\\/:*?"<>|]/g, '_'));
       await fs.writeFile(reportPath, runHistory.buildRunReport(run, 'html', { version: `Hanuman v${getAppVersion()}` }));
       const error = await shell.openPath(reportPath);
       if (error) {

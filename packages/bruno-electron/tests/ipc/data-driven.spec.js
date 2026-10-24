@@ -67,10 +67,8 @@ describe('data-driven IPC', () => {
     const { id } = await handlers['save-run']({
       collectionPathname: collectionPath,
       collectionName: 'c',
-      startedAt: 's',
       endedAt: 'e',
       iterationCount: 1,
-      dataDriven: false,
       items: [{ requestUid: 'r1', name: 'a', relativePath: 'a.bru', status: 'completed', testResults: [] }]
     });
     const runs = await handlers['list-runs']({ collectionPathname: collectionPath });

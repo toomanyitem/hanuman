@@ -705,8 +705,9 @@ const handler = async function (argv) {
       console.error(chalk.red(error.message));
       process.exit(constants.EXIT_STATUS.ERROR_GENERIC);
     }
-    // Only data-driven runs tag results with iterationIndex, so other runs keep their report shape.
-    const isDataDriven = Boolean(iterationData) || iterationCount !== undefined;
+    // Only runs with more than one iteration tag results with iterationIndex (the app's history
+    // export uses the same rule), so other runs keep their report shape.
+    const isDataDriven = totalIterations > 1;
     let iterationIndex = 0;
     const getIteration = () => ({ index: iterationIndex, count: totalIterations, data: getIterationRow(iterationRows, iterationIndex) });
 
