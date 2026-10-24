@@ -3572,6 +3572,7 @@ export const collectionsSlice = createSlice({
           info.isRecursive = isRecursive;
           info.cancelTokenUid = cancelTokenUid;
           info.status = 'started';
+          info.iterationCount = 1;
         }
 
         if (type === 'testrun-ended') {
@@ -3595,8 +3596,10 @@ export const collectionsSlice = createSlice({
           collection.runnerResult.items.push({
             uid: request.uid,
             requestUid: action.payload.requestUid,
+            iterationIndex: action.payload.iterationIndex ?? 0,
             status: 'queued'
           });
+          collection.runnerResult.info.iterationCount = action.payload.iterationCount ?? 1;
         }
 
         if (type === 'request-sent') {
