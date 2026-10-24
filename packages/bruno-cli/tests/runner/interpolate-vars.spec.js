@@ -221,3 +221,17 @@ describe('interpolate-vars: digest auth', () => {
     expect(request.digestConfig).toEqual({ username: 'user', password: 'passwd' });
   });
 });
+
+describe('interpolate-vars: iteration data', () => {
+  it('row values beat environment variables and lose to folder variables', () => {
+    const request = {
+      method: 'GET',
+      url: 'http://{{host}}/{{user}}/{{id}}',
+      folderVariables: { id: 'folder' },
+      iteration: { index: 0, count: 1, data: { user: 'row', id: 'row' } }
+    };
+
+    const result = interpolateVars(request, { host: 'env.local', user: 'env', id: 'env' }, {}, {});
+    expect(result.url).toEqual('http://env.local/row/folder');
+  });
+});

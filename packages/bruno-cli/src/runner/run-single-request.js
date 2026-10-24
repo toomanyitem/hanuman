@@ -61,6 +61,7 @@ const extractPromptVariablesForRequest = ({ request, collection, envVariables, r
   const allVariables = {
     ...globalEnvironmentVariables,
     ...envVariables,
+    ...request.iteration?.data,
     ...collectionVariables,
     ...folderVariables,
     ...requestVariables,

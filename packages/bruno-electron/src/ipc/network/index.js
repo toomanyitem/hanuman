@@ -1353,6 +1353,7 @@ const registerNetworkIpc = (mainWindow) => {
     const allVariables = {
       ...globalEnvironmentVariables,
       ...collectionEnvironmentVars,
+      ...request.iteration?.data,
       ...collectionVariables,
       ...folderVariables,
       ...requestVariables,
