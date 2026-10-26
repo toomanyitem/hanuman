@@ -41,6 +41,7 @@ const getRawQueryString = (url) => {
 const interpolateVars = (request, envVariables = {}, runtimeVariables = {}, processEnvVars = {}, promptVariables = {}) => {
   const globalEnvironmentVariables = request?.globalEnvironmentVariables || {};
   const oauth2CredentialVariables = request?.oauth2CredentialVariables || {};
+  const iterationVariables = request?.iteration?.data || {};
   const collectionVariables = request?.collectionVariables || {};
   const folderVariables = request?.folderVariables || {};
   const requestVariables = request?.requestVariables || {};
@@ -69,6 +70,7 @@ const interpolateVars = (request, envVariables = {}, runtimeVariables = {}, proc
       ...globalEnvironmentVariables,
       ...collectionVariables,
       ...envVariables,
+      ...iterationVariables,
       ...folderVariables,
       ...requestVariables,
       ...oauth2CredentialVariables,

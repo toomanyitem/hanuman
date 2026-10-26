@@ -13,6 +13,9 @@ import StyledWrapper from './StyledWrapper';
 import RunnerTags from './RunnerTags/index';
 import RunnerFilter from './RunnerFilter';
 import RunConfigurationPanel from './RunConfigurationPanel';
+import IterationDataControls from './IterationDataControls';
+import RunHistory from './RunHistory';
+import useIterationDataFile from 'hooks/useIterationDataFile';
 import Button from 'ui/Button/index';
 
 const TOOLBAR_LEVELS = ['compact', 'tiny'];
@@ -75,6 +78,8 @@ export default function RunnerResults({ collection }) {
   const [delay, setDelay] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedRequestItems, setSelectedRequestItems] = useState([]);
+  const [iterationCount, setIterationCount] = useState('');
+  const { dataFile, pickDataFile, clearDataFile } = useIterationDataFile(collection.pathname);
   const toolbarRef = useOverflowCollapse(TOOLBAR_LEVELS);
   const isReRunningRef = useRef(false);
   // ref for the runner output body
@@ -185,13 +190,21 @@ export default function RunnerResults({ collection }) {
     }));
   };
 
+  const isIterationCountInvalid = iterationCount !== '' && !(Number.isInteger(Number(iterationCount)) && Number(iterationCount) >= 1);
+  const iterationOptions = {
+    dataFilePath: dataFile && !dataFile.error ? dataFile.path : null,
+    iterationCount: iterationCount === '' ? null : Number(iterationCount)
+  };
+  const runnerIterationCount = runnerInfo.iterationCount || 1;
+  const currentIteration = items.reduce((max, item) => Math.max(max, (item.iterationIndex ?? 0) + 1), 1);
+
   const runCollection = async () => {
     shouldAutoScrollRef.current = true;
     lastScrollTopRef.current = 0;
     const savedOrder = get(collection, 'runnerConfiguration.requestItemsOrder', selectedRequestItems);
     dispatch(updateRunnerConfiguration(collection.uid, selectedRequestItems, savedOrder, delay));
     await clearStoredRunnerExchanges();
-    dispatch(runCollectionFolder(collection.uid, null, true, Number(delay), tags, selectedRequestItems));
+    dispatch(runCollectionFolder(collection.uid, null, true, Number(delay), tags, selectedRequestItems, iterationOptions));
   };
 
   const runAgain = async () => {
@@ -211,7 +224,8 @@ export default function RunnerResults({ collection }) {
         true,
         Number(savedDelay),
         tags,
-        savedSelectedItems
+        savedSelectedItems,
+        iterationOptions
       )
     );
   };
@@ -225,6 +239,7 @@ export default function RunnerResults({ collection }) {
       })
     );
     setDelay(null);
+    setIterationCount('');
   };
 
   const cancelExecution = () => {
@@ -282,6 +297,14 @@ export default function RunnerResults({ collection }) {
               />
             </div>
 
+            <IterationDataControls
+              dataFile={dataFile}
+              onPick={pickDataFile}
+              onClear={clearDataFile}
+              iterationCount={iterationCount}
+              onIterationCountChange={setIterationCount}
+            />
+
             {/* Filters */}
             <div className="runner-section-title mt-6">Filters</div>
             <div className="runner-section mt-2 mb-6">
@@ -293,7 +316,7 @@ export default function RunnerResults({ collection }) {
               <Button
                 type="submit"
                 data-testid="runner-run-button"
-                disabled={selectedRequestItems.length === 0 || isCollectionLoading}
+                disabled={selectedRequestItems.length === 0 || isCollectionLoading || Boolean(dataFile?.error) || isIterationCountInvalid}
                 onClick={runCollection}
               >
                 Run {selectedRequestItems.length} Request{selectedRequestItems.length !== 1 ? 's' : ''}
@@ -302,6 +325,8 @@ export default function RunnerResults({ collection }) {
               <Button type="button" variant="ghost" onClick={resetRunner}>
                 Reset
               </Button>
+
+              <RunHistory collectionPathname={collection.pathname} />
             </div>
           </div>
 
@@ -329,7 +354,12 @@ export default function RunnerResults({ collection }) {
         />
 
         {runnerInfo.status !== 'ended' && runnerInfo.cancelTokenUid ? (
-          <div className="runner-actions flex items-center flex-shrink-0">
+          <div className="runner-actions flex items-center gap-3 flex-shrink-0">
+            {runnerIterationCount > 1 ? (
+              <span className="text-xs" data-testid="runner-iteration-progress">
+                Iteration {currentIteration}/{runnerIterationCount}
+              </span>
+            ) : null}
             <Button
               type="button"
               onClick={cancelExecution}
@@ -346,6 +376,7 @@ export default function RunnerResults({ collection }) {
           </div>
         ) : runnerInfo.status === 'ended' ? (
           <div className="runner-actions flex items-center gap-3 flex-shrink-0">
+            <RunHistory collectionPathname={collection.pathname} />
             <Button
               type="button"
               onClick={runAgain}
@@ -405,7 +436,7 @@ export default function RunnerResults({ collection }) {
           <div className="overflow-y-auto flex-1 " ref={runnerBodyRef} onScroll={handleRunnerBodyScroll}>
             {filteredItems.map((item) => {
               return (
-                <div key={item.uid}>
+                <div key={item.requestUid || item.uid}>
                   <div className="item-path mt-2" data-testid="runner-result-item">
                     <div className="flex items-center">
                       <span>
@@ -424,6 +455,9 @@ export default function RunnerResults({ collection }) {
                       >
                         {item.displayName}
                       </span>
+                      {runnerIterationCount > 1 ? (
+                        <span className="text-xs text-muted mr-1" data-testid="runner-result-iteration">#{(item.iterationIndex ?? 0) + 1}</span>
+                      ) : null}
                       {item.status !== 'error' && item.status !== 'skipped' && item.status !== 'completed' ? (
                         <IconRefresh className="animate-spin ml-1" size={18} strokeWidth={1.5} />
                       ) : item.responseReceived?.status ? (

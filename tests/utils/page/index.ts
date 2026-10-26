@@ -10,6 +10,7 @@ export * from './websocket';
 export * from './sidebar';
 export * from './git/clone-git-repository';
 export * from './git/git-panel';
+export * from './data-driven';
 export * from './mounting';
 export * from './collection/migrate-to-yml';
 export * from './preferences';

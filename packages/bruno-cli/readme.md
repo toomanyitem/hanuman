@@ -114,7 +114,8 @@ Import Options:
 | --insecure                   | Allow insecure server connections                                             |
 | --tests-only                 | Only run requests that have tests                                             |
 | --bail                       | Stop execution after a failure of a request, test, or assertion               |
-| --csv-file-path              | CSV file to run the collection with                                           |
+| --iteration-data [string]    | CSV or JSON file; the selected requests run once per row                      |
+| --iteration-count [number]   | Number of iterations (default: rows in --iteration-data, or 1)                |
 | --reporter--skip-all-headers | Skip all headers in the report                                                |
 | --reporter-skip-headers      | Skip specific headers in the report                                           |
 | --client-cert-config         | Client certificate configuration by passing a JSON file                       |

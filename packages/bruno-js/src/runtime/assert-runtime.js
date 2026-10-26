@@ -364,6 +364,7 @@ const evaluateRhsOperand = (rhsOperand, operator, context, runtime, onUnresolved
     requestVariables: context.bru.requestVariables,
     runtimeVariables: context.bru.runtimeVariables,
     envVariables: context.bru.envVariables,
+    iterationVariables: context.bru.iterationVariables,
     processEnvVars: context.bru.processEnvVars,
     onUnresolved
   };
@@ -433,7 +434,8 @@ class AssertRuntime {
       promptVariables,
       certsAndProxyConfig,
       requestUrl: request?.url,
-      onUnresolved
+      onUnresolved,
+      iteration: request?.iteration
     });
     const req = new BrunoRequest(request);
     const res = createResponseParser(response);
@@ -448,6 +450,7 @@ class AssertRuntime {
       ...globalEnvironmentVariables,
       ...collectionVariables,
       ...envVariables,
+      ...bru.iterationVariables,
       ...folderVariables,
       ...requestVariables,
       ...oauth2CredentialVariables,

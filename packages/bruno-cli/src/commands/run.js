@@ -2,7 +2,7 @@ const fs = require('fs');
 const chalk = require('chalk');
 const path = require('path');
 const { forOwn, cloneDeep } = require('lodash');
-const { getRunnerSummary } = require('@usebruno/common/runner');
+const { getRunnerSummary, parseIterationData, getIterationRow, resolveIterationCount, nextRunnerPosition } = require('@usebruno/common/runner');
 const { exists, stripExtension, isSafeFileName } = require('../utils/filesystem');
 const { runSingleRequest } = require('../runner/run-single-request');
 const { isRequestTagsIncluded } = require('@usebruno/common');
@@ -219,6 +219,14 @@ const builder = async (yargs) => {
       type: 'number',
       description: 'Delay between each requests (in miliseconds)'
     })
+    .option('iteration-data', {
+      type: 'string',
+      description: 'CSV (with a header row) or JSON (array of objects) file; the selected requests run once per row'
+    })
+    .option('iteration-count', {
+      type: 'number',
+      description: 'Number of iterations (default: number of rows in --iteration-data, or 1)'
+    })
     .option('tags', {
       type: 'string',
       description: 'Tags to include in the run, matched against a request\'s own tags and its folders\' tags'
@@ -276,6 +284,8 @@ const builder = async (yargs) => {
     )
     .example('$0 run --client-cert-config client-cert-config.json', 'Run a request with Client certificate configurations')
     .example('$0 run folder --delay delayInMs', 'Run a folder with given miliseconds delay between each requests.')
+    .example('$0 run folder --iteration-data users.csv', 'Run a folder once per row of users.csv, with each column as a {{variable}}')
+    .example('$0 run --iteration-count 3', 'Run the collection three times')
     .example('$0 run --noproxy', 'Run requests with system proxy disabled')
     .example(
       '$0 run folder --tags=hello,world --exclude-tags=skip',
@@ -328,6 +338,8 @@ const handler = async function (argv) {
       noproxy,
       cacheSslSession,
       delay,
+      iterationData,
+      iterationCount,
       tags: includeTags,
       excludeTags,
       verbose
@@ -673,6 +685,32 @@ const handler = async function (argv) {
       });
     }
 
+    let iterationRows = [];
+    if (iterationData) {
+      if (!(await exists(iterationData))) {
+        console.error(chalk.red(`Iteration data file "${iterationData}" does not exist.`));
+        process.exit(constants.EXIT_STATUS.ERROR_FILE_NOT_FOUND);
+      }
+      try {
+        iterationRows = parseIterationData(fs.readFileSync(iterationData, 'utf8'), iterationData);
+      } catch (error) {
+        console.error(chalk.red(`Iteration data file "${iterationData}": ${error.message}`));
+        process.exit(constants.EXIT_STATUS.ERROR_INVALID_FILE);
+      }
+    }
+    let totalIterations;
+    try {
+      totalIterations = resolveIterationCount(iterationRows, iterationCount);
+    } catch (error) {
+      console.error(chalk.red(error.message));
+      process.exit(constants.EXIT_STATUS.ERROR_GENERIC);
+    }
+    // Only runs with more than one iteration tag results with iterationIndex (the app's history
+    // export uses the same rule), so other runs keep their report shape.
+    const isDataDriven = totalIterations > 1;
+    let iterationIndex = 0;
+    const getIteration = () => ({ index: iterationIndex, count: totalIterations, data: getIterationRow(iterationRows, iterationIndex) });
+
     let requestItems = [];
     const results = [];
 
@@ -793,6 +831,7 @@ const handler = async function (argv) {
         }
         const requestItem = cloneDeep(findItemInCollection(collection, itemPathname));
         if (requestItem) {
+          requestItem.iteration = getIteration();
           const res = await runSingleRequest(
             requestItem,
             collectionPath,
@@ -816,9 +855,15 @@ const handler = async function (argv) {
 
     let currentRequestIndex = 0;
     let nJumps = 0; // count the number of jumps to avoid infinite loops
+    let announcedIteration = -1;
     while (currentRequestIndex < requestItems.length) {
       const requestItem = cloneDeep(requestItems[currentRequestIndex]);
       const { name, pathname } = requestItem;
+      requestItem.iteration = getIteration();
+      if (totalIterations > 1 && announcedIteration !== iterationIndex) {
+        console.log(chalk.bold(`\nIteration ${iterationIndex + 1}/${totalIterations}`));
+        announcedIteration = iterationIndex;
+      }
 
       const start = process.hrtime();
       const result = await runSingleRequest(
@@ -837,7 +882,7 @@ const handler = async function (argv) {
         runAbortSignal
       );
 
-      const isLastRun = currentRequestIndex === requestItems.length - 1;
+      const isLastRun = currentRequestIndex === requestItems.length - 1 && iterationIndex === totalIterations - 1;
       const isValidDelay = !Number.isNaN(delay) && delay > 0;
       if (isValidDelay && !isLastRun) {
         console.log(chalk.yellow(`Waiting for ${delay}ms or ${(delay / 1000).toFixed(3)}s before next request.`));
@@ -853,7 +898,8 @@ const handler = async function (argv) {
         runDuration: process.hrtime(start)[0] + process.hrtime(start)[1] / 1e9,
         suitename: stripExtension(pathname),
         name,
-        path: result.test?.filename || path.relative(collectionPath, pathname)
+        path: result.test?.filename || path.relative(collectionPath, pathname),
+        ...(isDataDriven && { iterationIndex })
       });
 
       sanitizeResultsForReporter(results, {
@@ -885,7 +931,7 @@ const handler = async function (argv) {
           // ran due to bail. These let getRunnerSummary count them as skipped, and the
           // summary table can distinguish them from user-initiated skips via skipReason.
           for (const request of remainingItems) {
-            results.push(createSkippedResult(request, 'bail'));
+            results.push({ ...createSkippedResult(request, 'bail'), ...(isDataDriven && { iterationIndex }) });
           }
 
           haltRun('bail', { haltedAtRequest: name, haltedReason: bailReason, remainingRequests: remainingItems.length });
@@ -907,7 +953,7 @@ const handler = async function (argv) {
         const remainingItems = requestItems.slice(currentRequestIndex + 1);
 
         for (const request of remainingItems) {
-          results.push(createSkippedResult(request, 'stopExecution'));
+          results.push({ ...createSkippedResult(request, 'stopExecution'), ...(isDataDriven && { iterationIndex }) });
         }
 
         haltRun('stopExecution', {
@@ -918,6 +964,7 @@ const handler = async function (argv) {
         break;
       }
 
+      let nextRequestIndex;
       if (nextRequestName !== undefined) {
         nJumps++;
         if (nJumps > 10000) {
@@ -925,17 +972,27 @@ const handler = async function (argv) {
           process.exit(constants.EXIT_STATUS.ERROR_INFINITE_LOOP);
         }
         if (nextRequestName === null) {
-          break;
-        }
-        const nextRequestIdx = requestItems.findIndex((iter) => iter.name === nextRequestName);
-        if (nextRequestIdx >= 0) {
-          currentRequestIndex = nextRequestIdx;
+          nextRequestIndex = null;
         } else {
-          console.error('Could not find request with name \'' + nextRequestName + '\'');
-          currentRequestIndex++;
+          const nextRequestIdx = requestItems.findIndex((iter) => iter.name === nextRequestName);
+          if (nextRequestIdx >= 0) {
+            nextRequestIndex = nextRequestIdx;
+          } else {
+            console.error('Could not find request with name \'' + nextRequestName + '\'');
+          }
         }
-      } else {
-        currentRequestIndex++;
+      }
+
+      const previousIteration = iterationIndex;
+      ({ requestIndex: currentRequestIndex, iterationIndex } = nextRunnerPosition({
+        requestIndex: currentRequestIndex,
+        requestCount: requestItems.length,
+        iterationIndex,
+        iterationCount: totalIterations,
+        nextRequestIndex
+      }));
+      if (iterationIndex !== previousIteration) {
+        nJumps = 0;
       }
     }
 

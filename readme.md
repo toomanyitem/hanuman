@@ -20,7 +20,8 @@ An open-source API client built on [Bruno](https://github.com/usebruno/bruno) (M
 - ติดตั้งคู่กับ Bruno ได้ (ใช้ `hanuman://` และโฟลเดอร์ข้อมูลแยกกัน)
 - แจ้งเมื่อมีเวอร์ชันใหม่: เมนู **Help → Check for Updates…** หรือ **Preferences → General → Updates** (เช็กอัตโนมัติตอนเปิดแอปต้องเปิดเอง ค่าเริ่มต้นปิด) แอปจะถาม GitHub ว่า release ล่าสุดคือเวอร์ชันอะไร ไม่ส่งข้อมูลอื่น บน macOS กด **Download and Install** ให้แอปดาวน์โหลด ตรวจ sha256 และติดตั้งเวอร์ชันใหม่ทับให้เอง (แอปเดิมย้ายไปถังขยะ) ไม่ต้องรัน `xattr` หรือกด Open Anyway อีก
 - **แผง Git ในแอป** ดูไฟล์ที่เปลี่ยน, diff แบบ visual, stage/commit, fetch/pull (merge หรือ rebase)/push, สลับและสร้าง branch, stash, แก้ merge conflict และเก็บ access token ต่อ host แบบเข้ารหัส
-- ฟีเจอร์ที่จะเพิ่มต่อไปดูได้ใน [เอกสารออกแบบ](docs/superpowers/specs/2026-10-20-hanuman-design.md): data-driven testing, secret manager, Socket.IO/MQTT, load test, Mock Server แบบเต็ม, Monitor และ API Docs แบบออฟไลน์
+- **Data-driven testing:** ใน Runner เลือกไฟล์ CSV หรือ JSON แล้วรันทุก request หนึ่งรอบต่อหนึ่งแถว ค่าในแถวใช้เป็น `{{คอลัมน์}}` และอ่านในสคริปต์ด้วย `bru.runner.iterationData.get('คอลัมน์')` (collection จาก Postman ที่ใช้ `pm.iterationData` import มาแล้วใช้ได้) ดูผลแยกรอบ เก็บประวัติ 50 ครั้งล่าสุดไว้ในเครื่อง และ export เป็น HTML (ไฟล์เดียว เปิดออฟไลน์ได้), JUnit หรือ JSON · CLI: `hanuman run --iteration-data users.csv [--iteration-count 5]`
+- ฟีเจอร์ที่จะเพิ่มต่อไปดูได้ใน [เอกสารออกแบบ](docs/superpowers/specs/2026-10-20-hanuman-design.md): secret manager, Socket.IO/MQTT, load test, Mock Server แบบเต็ม, Monitor และ API Docs แบบออฟไลน์
 
 ### ติดตั้ง
 ดาวน์โหลดจากหน้า [Releases](https://github.com/toomanyitem/hanuman/releases) ของ repo นี้
@@ -103,7 +104,8 @@ scripts/hanuman/release-local.sh v0.1.2 linux win cli --upload
 - Installs side by side with Bruno (its own `hanuman://` protocol and data folder).
 - Update notices: **Help → Check for Updates…** or **Preferences → General → Updates** (the check at startup is opt-in). The app only asks GitHub for the latest release of `toomanyitem/hanuman`. On macOS, **Download and Install** downloads the new version, checks its sha256 and installs it over the current one (the old app goes to the Trash), with no `xattr` or Open Anyway step.
 - **A Git panel in the app:** changed files, visual diffs, stage and commit, fetch, pull (merge or rebase) and push, branches, stash, merge-conflict resolution, and encrypted per-host access tokens.
-- Roadmap: see the [design spec](docs/superpowers/specs/2026-10-20-hanuman-design.md) — data-driven testing, secret managers, Socket.IO/MQTT, load testing, a full mock server, monitors, and offline API docs.
+- **Data-driven testing:** pick a CSV or JSON file in the Runner and every request runs once per row; columns are `{{variables}}` and `bru.runner.iterationData.get('column')` in scripts (Postman collections using `pm.iterationData` import and run). Results per iteration, the last 50 runs kept locally, and reports exported as single-file offline HTML, JUnit or JSON. CLI: `hanuman run --iteration-data users.csv [--iteration-count 5]`.
+- Roadmap: see the [design spec](docs/superpowers/specs/2026-10-20-hanuman-design.md) — secret managers, Socket.IO/MQTT, load testing, a full mock server, monitors, and offline API docs.
 
 ### Install
 Download from this repository's [Releases](https://github.com/toomanyitem/hanuman/releases).

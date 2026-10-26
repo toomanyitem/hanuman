@@ -1,0 +1,18 @@
+meta {
+  name: get-user
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:8081/query?name={{name}}&email={{email}}
+  body: none
+  auth: none
+}
+
+tests {
+  test('echoes the row values', function () {
+    expect(res.body.name).to.equal(bru.runner.iterationData.get('name'));
+    expect(res.body.email).to.equal(String(bru.runner.iterationData.get('email')));
+  });
+}

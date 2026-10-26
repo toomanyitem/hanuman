@@ -1,10 +1,11 @@
 const { describe, it, expect } = require('@jest/globals');
 const fs = require('fs');
 
-const mockGenerateHtmlReport = jest.fn(() => '<html>Mock HTML</html>');
+const mockGenerateOfflineHtmlReport = jest.fn(() => '<html>Mock HTML</html>');
 
 jest.mock('@usebruno/common/runner', () => ({
-  generateHtmlReport: mockGenerateHtmlReport
+  ...jest.requireActual('@usebruno/common/runner'),
+  generateOfflineHtmlReport: mockGenerateOfflineHtmlReport
 }));
 
 const makeHtmlOutput = require('../../src/reporters/html');
@@ -13,7 +14,7 @@ describe('makeHtmlOutput', () => {
   let writeFileSyncSpy;
 
   beforeEach(() => {
-    mockGenerateHtmlReport.mockClear();
+    mockGenerateOfflineHtmlReport.mockClear();
     writeFileSyncSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
   });
 
@@ -21,7 +22,7 @@ describe('makeHtmlOutput', () => {
     jest.restoreAllMocks();
   });
 
-  it('should pass environment parameter to generateHtmlReport when provided', async () => {
+  it('should pass environment parameter to generateOfflineHtmlReport when provided', async () => {
     const mockResults = {
       results: [],
       summary: {
@@ -41,7 +42,7 @@ describe('makeHtmlOutput', () => {
 
     await makeHtmlOutput(mockResults, '/tmp/test.html', '2024-01-15T14:30:45.123Z', 'production');
 
-    expect(mockGenerateHtmlReport).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockGenerateOfflineHtmlReport).toHaveBeenCalledWith(expect.objectContaining({
       environment: 'production'
     }));
   });
@@ -66,7 +67,7 @@ describe('makeHtmlOutput', () => {
 
     await makeHtmlOutput(mockResults, '/tmp/test.html', '2024-01-15T14:30:45.123Z');
 
-    expect(mockGenerateHtmlReport).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockGenerateOfflineHtmlReport).toHaveBeenCalledWith(expect.objectContaining({
       environment: null
     }));
   });

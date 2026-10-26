@@ -4,6 +4,7 @@ const { interpolate: _interpolate } = require('@usebruno/common');
 const { createSendRequest } = require('@usebruno/requests').scripting;
 const { jar: createCookieJar, getCookiesForUrl } = require('@usebruno/requests').cookies;
 const CookieList = require('./cookie-list');
+const { createIterationApi } = require('./iteration-data');
 
 const variableNameRegex = /^[\w-.]*$/;
 
@@ -41,6 +42,7 @@ class Bru {
    * @property {object} [options.certsAndProxyConfig.systemProxyConfig] - System proxy configuration
    * @property {string} [options.requestUrl] - The URL of the current request (used for cookie access)
    * @property {function(string): void} [options.onUnresolved] - Called with each variable a script reads or interpolates that is not defined
+   * @property {{index: number, count: number, data: object}} [options.iteration] - Current data-driven iteration
    */
   constructor({
     runtime,
@@ -57,7 +59,8 @@ class Bru {
     promptVariables,
     certsAndProxyConfig,
     requestUrl,
-    onUnresolved
+    onUnresolved,
+    iteration
   }) {
     this.envVariables = envVariables || {};
     this.runtimeVariables = runtimeVariables || {};
@@ -68,6 +71,7 @@ class Bru {
     this.requestVariables = requestVariables || {};
     this.globalEnvironmentVariables = globalEnvironmentVariables || {};
     this.oauth2CredentialVariables = oauth2CredentialVariables || {};
+    this.iterationVariables = iteration?.data || {};
     this.collectionPath = collectionPath;
     this.collectionName = collectionName;
     this.#onUnresolved = onUnresolved;
@@ -106,7 +110,8 @@ class Bru {
       },
       setNextRequest: (nextRequest) => {
         this.nextRequest = nextRequest;
-      }
+      },
+      ...createIterationApi(iteration)
     };
 
     this.utils = {
@@ -163,6 +168,7 @@ class Bru {
       ...this.globalEnvironmentVariables,
       ...this.collectionVariables,
       ...this.envVariables,
+      ...this.iterationVariables,
       ...this.folderVariables,
       ...this.requestVariables,
       ...this.oauth2CredentialVariables,
